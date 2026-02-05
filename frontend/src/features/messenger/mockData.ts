@@ -1,0 +1,90 @@
+// src/features/messenger/mockData.ts
+import type { MessengerMessage } from "./types";
+
+export const initialMessengerMessages: MessengerMessage[] = [
+  {
+    id: "m-1",
+    folder: "inbox",
+    type: "patient_related",
+    category: "For information",
+    subject: "Wrong patient",
+    patientId: "20 191232-0015",
+    patientName: "Niclas Lind",
+    from: "Ssk Törn, Måns",
+    to: "Leg läk Högdal, Olof",
+    receivedAt: "2020-05-29 11:18",
+    body:
+      "Hi,\n\nI think we have documentation on the wrong patient. Please review.\n\n/ Nurse",
+    read: false,
+  },
+  {
+    id: "m-2",
+    folder: "inbox",
+    type: "patient_related",
+    category: "Observation",
+    subject: "Referral assessment",
+    patientId: "19 930932-0019",
+    patientName: "Kurt Skog",
+    from: "Leg läk Högdal, Olof",
+    to: "Ssk Törn, Måns",
+    receivedAt: "2020-05-29 11:17",
+    body:
+      "Please assess this referral.\n\nPatient has worsening symptoms.\n\n/ Doctor",
+    read: false,
+  },
+  {
+    id: "m-3",
+    folder: "inbox",
+    type: "non_patient_related",
+    category: "General information",
+    subject: "Swish for flowers",
+    from: "Ssk Törn, Måns",
+    to: "All staff",
+    receivedAt: "2020-05-29 11:16",
+    body:
+      "Reminder: collection for flowers.\n\nThanks!",
+    read: true,
+  },
+  {
+    id: "m-4",
+    folder: "sent",
+    type: "non_patient_related",
+    category: "Scheduling",
+    subject: "Common booking",
+    from: "Usk Björk, Rosa",
+    to: "Reception",
+    receivedAt: "2020-05-29 11:06",
+    body:
+      "Hi,\nCan we book a common time slot for the team?\n\nThanks",
+    read: true,
+  },
+  {
+    id: "m-5",
+    folder: "drafts",
+    type: "patient_related",
+    category: "For information",
+    subject: "Diabetes patient",
+    patientId: "19 611232-0012",
+    patientName: "Ronny Undermot",
+    from: "You",
+    to: "Medicine division",
+    receivedAt: "2020-05-29 08:40",
+    body:
+      "Draft:\n\nPatient needs review of insulin plan.\n\n",
+    read: true,
+  },
+  {
+    id: "m-6",
+    folder: "outgoing",
+    type: "non_patient_related",
+    category: "General information",
+    subject: "Staff meeting",
+    from: "You",
+    to: "All staff",
+    receivedAt: "2020-05-29 09:00",
+    scheduledFor: "2020-05-30 09:00",
+    body:
+      "Scheduled message:\n\nStaff meeting tomorrow at 09:30.\n\n",
+    read: true,
+  },
+];

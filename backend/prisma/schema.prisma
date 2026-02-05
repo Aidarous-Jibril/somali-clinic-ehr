@@ -1,0 +1,387 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Gender {
+  male
+  female
+  other
+  unknown
+}
+
+enum EncounterType {
+  outpatient
+  inpatient
+  emergency
+  telehealth
+}
+
+enum EncounterStatus {
+  open
+  closed
+  cancelled
+}
+
+model Clinic {
+  id         String @id @default(uuid())
+  code       String @unique
+  name       String
+  mrnCounter Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patients    Patient[]
+  encounters  Encounter[]
+  orders      Order[]
+  labResults  LabResult[]
+  medications Medication[] @relation("ClinicMedications")
+  referrals   Referral[]
+}
+
+model Patient {
+  id String @id @default(uuid())
+
+  mrn String
+
+  clinicId String
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  firstName   String
+  lastName    String
+  gender      Gender
+  dateOfBirth DateTime
+
+  phone      String?
+  email      String?
+  nationalId String?
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  encounters          Encounter[]
+  orders              Order[]
+  labResults          LabResult[]
+  medications         Medication[]        @relation("PatientMedications")
+  referrals           Referral[]
+  fluidBalanceEntries FluidBalanceEntry[]
+
+  @@unique([clinicId, mrn])
+  @@index([lastName, firstName])
+}
+
+enum ClinicalParameterName {
+  NEWS2
+  respiratory_rate
+  spo2
+  pulse
+  blood_pressure
+  temperature
+  consciousness
+}
+
+model Encounter {
+  id String @id @default(uuid())
+
+  type   String
+  status String @default("open")
+
+  reason String?
+  notes  String?
+
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  clinicId  String
+  clinic    Clinic  @relation(fields: [clinicId], references: [id])
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  parameters ClinicalParameterName[]
+
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  clinicalParameterEntries ClinicalParameterEntry[]
+  orders                   Order[]
+  medications              Medication[]             @relation("EncounterMedications")
+  referrals                Referral[]
+  fluidBalanceEntries      FluidBalanceEntry[]
+
+  @@index([patientId])
+  @@index([clinicId])
+}
+
+model ClinicalParameterEntry {
+  id String @id @default(uuid())
+
+  encounterId String
+  encounter   Encounter @relation(fields: [encounterId], references: [id])
+
+  name ClinicalParameterName
+
+  // Stored as STRING to allow "120/80", "98 %", etc.
+  value String
+
+  // Optional metadata
+  note String?
+
+  recordedBy String? // clinician name or ID
+
+  recordedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  @@index([encounterId])
+  @@index([name])
+}
+
+enum OrderCategory {
+  chemistry
+  microbiology
+  radiology
+  procedure
+}
+
+enum OrderStatus {
+  ordered
+  collected
+  resulted
+  cancelled
+}
+
+model Order {
+  id String @id @default(uuid())
+
+  clinicId String
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  encounterId String
+  encounter   Encounter @relation(fields: [encounterId], references: [id])
+
+  category OrderCategory
+  code     String
+  name     String
+  status   OrderStatus   @default(ordered)
+
+  orderedBy String
+  orderedAt DateTime @default(now())
+
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  labResults LabResult[]
+
+  @@index([patientId])
+  @@index([encounterId])
+  @@index([category])
+  @@map("orders") // 🔥 THIS IS THE FIX
+}
+
+enum LabResultFlag {
+  normal
+  high
+  low
+  critical
+}
+
+model LabResult {
+  id String @id @default(uuid())
+
+  clinicId String
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  value String // "61"
+  unit  String? // "mmol/mol"
+  flag  LabResultFlag // high / low / normal
+
+  resultDate DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([orderId])
+}
+
+enum MedicationStatus {
+  active
+  paused
+  ended
+}
+
+enum MedicationFrequency {
+  once_daily
+  twice_daily
+  three_times_daily
+  four_times_daily
+  as_needed
+}
+
+model Medication {
+  id String @id @default(uuid())
+
+  clinicId String
+  clinic   Clinic @relation("ClinicMedications", fields: [clinicId], references: [id])
+
+  patientId String
+  patient   Patient @relation("PatientMedications", fields: [patientId], references: [id])
+
+  encounterId String?
+  encounter   Encounter? @relation("EncounterMedications", fields: [encounterId], references: [id])
+
+  name      String
+  strength  String?
+  dose      String
+  frequency MedicationFrequency
+
+  status MedicationStatus @default(active)
+
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([clinicId])
+}
+
+enum ReferralStatus {
+  unassessed
+  accepted
+  in_progress
+  completed
+}
+
+enum ReferralRole {
+  Doctor
+  Nurse
+  Physiotherapist
+  OccupationalTherapist
+  Dietitian
+  SpeechTherapist
+  Midwife
+  Other
+}
+
+model Referral {
+  id String @id @default(uuid())
+
+  clinicId String
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  encounterId String?
+  encounter   Encounter? @relation(fields: [encounterId], references: [id])
+
+  to   String
+  from String
+
+  sentByRole ReferralRole
+  sentByName String
+  sentByUnit String?
+
+  status ReferralStatus @default(unassessed)
+
+  urgent            Boolean @default(false)
+  hasAdditionalInfo Boolean @default(false)
+
+  details String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([clinicId])
+}
+
+enum FluidIntakeSource {
+  oral
+  enteral
+  medication
+}
+
+enum FluidOutputSource {
+  urine
+  bleeding
+  faeces
+  vomiting
+  other
+}
+
+model FluidBalanceEntry {
+  id String @id @default(uuid())
+
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  encounterId String?
+  encounter   Encounter? @relation(fields: [encounterId], references: [id])
+
+  measuredAt DateTime
+  label      String // "Today", "Yesterday"
+  period     String // "05:00–04:59"
+
+  intakeMl  Int
+  outputMl  Int
+  balanceMl Int
+
+  details FluidBalanceDetails?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([measuredAt])
+}
+
+model FluidBalanceDetails {
+  id String @id @default(uuid())
+
+  entryId String            @unique
+  entry   FluidBalanceEntry @relation(fields: [entryId], references: [id])
+
+  oralMl   Int @default(0)
+  oralKcal Int @default(0)
+
+  enteralMl   Int @default(0)
+  enteralKcal Int @default(0)
+
+  urineMl    Int @default(0)
+  bleedingMl Int @default(0)
+  faecesMl   Int @default(0)
+  vomitingMl Int @default(0)
+}
