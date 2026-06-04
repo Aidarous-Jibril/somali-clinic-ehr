@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-export const createEncounterSchema = z.object({
-  clinicId: z.uuid(),
+export const createEncounterSchema = z.object({ 
+  clinicId: z.uuid().optional(),
   patientId: z.uuid(),
 
   type: z.enum([

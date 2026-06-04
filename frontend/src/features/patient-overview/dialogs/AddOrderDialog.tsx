@@ -1,148 +1,157 @@
 // src/features/patient-overview/dialogs/AddOrderDialog.tsx
-import React, { useMemo } from "react";
+
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Button,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
   Grid,
   MenuItem,
   Stack,
   TextField,
   Typography,
+  Divider,
 } from "@mui/material";
-import type { OrderForm } from "../../../features/patient-overview/types";
 
-type Props = {
-  open: boolean;
-  form: OrderForm;
-  setForm: React.Dispatch<React.SetStateAction<OrderForm>>;
-  onClose: () => void;
-  onSave: () => void;
-  mode?: "create" | "edit";
-};
+import type { Encounter, Order } from "../types";
+import { useAuth } from "../../../context/AuthContext";
 
-const CARE_CONTACTS = [
-  "2023-10-31, Ward stay, Medical ward 1, Medicine clinic, Nässjö",
-  "2024-09-02, Ward stay, Stroke ward, Mora Lasarett",
-  "2025-10-22, Outpatient visit, Medicine clinic",
-];
-
-const ORDERING_UNITS = [
-  "Stroke ward",
-  "Medical ward 1",
-  "Medical ward 2",
-  "Emergency department",
-];
-
-const ORDERED_BY_UNITS = [
-  "Stroke ward",
-  "Medical ward 2",
-  "Outpatient clinic North",
-  "Emergency department",
-];
-
+/* ================= ANALYSIS OPTIONS ================= */
 const ANALYSIS_BY_CATEGORY: Record<string, string[]> = {
   Chemistry: ["P-CRP", "B-Hb", "B-HbA1c (IFCC)", "P-Albumin", "P-Potassium"],
   Hematology: ["B-Neutrophils", "B-Platelets", "B-EVF"],
   Microbiology: ["Urine culture", "Blood culture", "Wound culture", "Stool culture"],
   Radiology: ["Chest X-ray", "CT brain", "Ultrasound abdomen"],
-  Endoscopy: ["Gastroscopy (EGD)", "Colonoscopy"],
-  "Clinical parameters": [
-    "NEWS2",
-    "AVPU",
-    "Respiratory rate",
-    "SpO₂",
-    "Pulse",
-    "Blood pressure",
-    "Body temperature",
-  ],
-  Tasks: [
-    "Insert PVK",
-    "Flush IV line",
-    "Oxygen therapy",
-    "Wound care",
-    "Urine collection",
-    "Telemetry",
-    "Physio training",
-  ],
   Other: ["EKG", "Physio assessment", "Dietician assessment"],
 };
 
+/* ================= TYPES ================= */
+type OrderFormState = {
+  category: string;
+  name: string;
+  date: string;
+  plannedDate?: string;
+  requester?: string;
+  orderingUnit?: string;
+  comment?: string;
+};
+
+type Props = {
+  open: boolean;
+  mode?: "create" | "edit" | "view";
+  encounter?: Encounter;
+  editingOrder?: Order | null;
+  onClose: () => void;
+  onSave: (data: OrderFormState) => void;
+};
+
+/* ================= COMPONENT ================= */
 export const AddOrderDialog: React.FC<Props> = ({
   open,
-  form,
-  setForm,
+  mode = "create",
+  encounter,
+  editingOrder,
   onClose,
   onSave,
-  mode = "create",
 }) => {
+  const { user } = useAuth();
+  const readOnly = mode === "view";
+
+  const [form, setForm] = useState<OrderFormState>({
+    category: "Chemistry",
+    name: "",
+    date: "",
+    plannedDate: "",
+    requester: "",
+    orderingUnit: "",
+    comment: "",
+  });
+
+  /* ================= PREFILL ================= */
+  useEffect(() => {
+    if (!open) return;
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    if (mode === "create") {
+      setForm({
+        category: "Chemistry",
+        name: "",
+        date: today,
+        plannedDate: today,
+        requester: user?.name || "",
+        orderingUnit: user?.unitName || "",
+        comment: "",
+      });
+    }
+
+    if ((mode === "edit" || mode === "view") && editingOrder) {
+      setForm({
+        category: editingOrder.category || "Chemistry",
+        name: editingOrder.name || "",
+        date: editingOrder.date || today, // ✅ FIXED
+
+        plannedDate: editingOrder.plannedDate || today,
+        requester: editingOrder.requester || user?.name || "",
+        orderingUnit: editingOrder.orderingUnit || user?.unitName || "",
+        comment: editingOrder.comment || "",
+      });
+    }
+  }, [open, mode, editingOrder, user]);
+
+  /* ================= OPTIONS ================= */
   const analysisOptions = useMemo(() => {
-    const key = form.category || "Chemistry";
-    return ANALYSIS_BY_CATEGORY[key] ?? [];
+    return ANALYSIS_BY_CATEGORY[form.category] ?? [];
   }, [form.category]);
 
-  const canSave = Boolean(
-    form.category?.trim() && form.name?.trim() && form.orderedBy?.trim() && form.date?.trim()
-  );
+  /* ================= VALIDATION ================= */
+  const canSave =
+    !!form.category?.trim() &&
+    !!form.name?.trim();
+
+  /* ================= HANDLERS ================= */
+  const setField =
+    (key: keyof OrderFormState) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setForm((prev) => ({ ...prev, [key]: e.target.value }));
+    };
+
+  const handleCategoryChange = (category: string) => {
+    setForm((prev) => ({
+      ...prev,
+      category,
+      name: ANALYSIS_BY_CATEGORY[category]?.includes(prev.name)
+        ? prev.name
+        : "",
+    }));
+  };
+
+  const handleSave = () => {
+    onSave(form);
+  };
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle sx={{ pb: 1 }}>
-        {mode === "edit" ? "Edit order" : "New lab / radiology order"}
+        {mode === "edit"
+          ? "Edit order"
+          : mode === "view"
+          ? "Order details"
+          : "New order"}
+
+        {encounter && (
+          <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
+            Encounter: {encounter.type} •{" "}
+            {encounter.reason || "No reason specified"}
+          </Typography>
+        )}
       </DialogTitle>
 
       <DialogContent sx={{ pt: 1 }}>
-        <Typography variant="subtitle2" sx={{ color: "text.secondary", mb: 1 }}>
-          Shared information
-        </Typography>
-
-        <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12} md={8}>
-            <TextField
-              label="Ordering care contact"
-              size="small"
-              select
-              fullWidth
-              value={form.careContact ?? CARE_CONTACTS[0]}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, careContact: e.target.value }))
-              }
-            >
-              {CARE_CONTACTS.map((x) => (
-                <MenuItem key={x} value={x}>
-                  {x}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-
-          <Grid item xs={12} md={4}>
-            <TextField
-              label="Ordering unit"
-              size="small"
-              select
-              fullWidth
-              value={form.orderingUnit ?? ORDERING_UNITS[0]}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, orderingUnit: e.target.value }))
-              }
-            >
-              {ORDERING_UNITS.map((x) => (
-                <MenuItem key={x} value={x}>
-                  {x}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-        </Grid>
-
-        <Divider sx={{ mb: 2 }} />
-
-        <Grid container spacing={2}>
-          {/* Base fields */}
+        <Grid container spacing={3}>
+          {/* LEFT */}
           <Grid item xs={12} md={6}>
             <Stack spacing={2}>
               <TextField
@@ -150,25 +159,14 @@ export const AddOrderDialog: React.FC<Props> = ({
                 size="small"
                 select
                 value={form.category}
-                onChange={(e) => {
-                  const category = e.target.value;
-                  setForm((prev) => ({
-                    ...prev,
-                    category,
-                    name: (ANALYSIS_BY_CATEGORY[category] ?? []).includes(prev.name)
-                      ? prev.name
-                      : "",
-                  }));
-                }}
+                onChange={(e) => handleCategoryChange(e.target.value)}
+                disabled={readOnly}
               >
-                <MenuItem value="Chemistry">Chemistry</MenuItem>
-                <MenuItem value="Hematology">Hematology</MenuItem>
-                <MenuItem value="Microbiology">Microbiology</MenuItem>
-                <MenuItem value="Radiology">Radiology</MenuItem>
-                <MenuItem value="Endoscopy">Endoscopy</MenuItem>
-                <MenuItem value="Clinical parameters">Clinical parameters</MenuItem>
-                <MenuItem value="Tasks">Tasks</MenuItem>
-                <MenuItem value="Other">Other</MenuItem>
+                {Object.keys(ANALYSIS_BY_CATEGORY).map((cat) => (
+                  <MenuItem key={cat} value={cat}>
+                    {cat}
+                  </MenuItem>
+                ))}
               </TextField>
 
               <TextField
@@ -176,8 +174,8 @@ export const AddOrderDialog: React.FC<Props> = ({
                 size="small"
                 select
                 value={form.name}
-                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                disabled={!analysisOptions.length}
+                onChange={setField("name")}
+                disabled={readOnly}
               >
                 {analysisOptions.map((x) => (
                   <MenuItem key={x} value={x}>
@@ -187,118 +185,45 @@ export const AddOrderDialog: React.FC<Props> = ({
               </TextField>
 
               <TextField
-                label="Ordered by (unit / clinic)"
-                size="small"
-                select
-                value={form.orderedBy}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, orderedBy: e.target.value }))
-                }
-              >
-                {ORDERED_BY_UNITS.map((x) => (
-                  <MenuItem key={x} value={x}>
-                    {x}
-                  </MenuItem>
-                ))}
-              </TextField>
-
-              <TextField
-                label="Date"
+                label="Order date"
+                type="date"
                 size="small"
                 value={form.date}
-                onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))}
-                placeholder="YYYY-MM-DD"
+                onChange={setField("date")}
+                InputLabelProps={{ shrink: true }}
+                disabled={readOnly}
               />
             </Stack>
           </Grid>
 
-          {/* Details */}
+          {/* RIGHT */}
           <Grid item xs={12} md={6}>
             <Stack spacing={2}>
-              <Typography variant="subtitle2" sx={{ color: "text.secondary" }}>
-                Order details
-              </Typography>
+              <Typography variant="subtitle2">Order context</Typography>
 
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={7}>
-                  <TextField
-                    label="Planned date"
-                    size="small"
-                    fullWidth
-                    value={form.plannedDate ?? ""}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, plannedDate: e.target.value }))
-                    }
-                    placeholder="YYYY-MM-DD"
-                  />
-                </Grid>
-                <Grid item xs={12} md={5}>
-                  <TextField
-                    label="Time"
-                    size="small"
-                    fullWidth
-                    value={form.plannedTime ?? ""}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, plannedTime: e.target.value }))
-                    }
-                    placeholder="HH:mm"
-                  />
-                </Grid>
-              </Grid>
+              <TextField label="Requester" size="small" value={form.requester} disabled />
+              <TextField label="Unit" size="small" value={form.orderingUnit} disabled />
+
+              <Divider />
 
               <TextField
-                label="Repeat"
+                label="Planned date"
+                type="date"
                 size="small"
-                select
-                value={form.repeat ?? "Never"}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, repeat: e.target.value as any }))
-                }
-              >
-                <MenuItem value="Never">Never</MenuItem>
-                <MenuItem value="Daily">Daily</MenuItem>
-                <MenuItem value="Weekly">Weekly</MenuItem>
-                <MenuItem value="Monthly">Monthly</MenuItem>
-              </TextField>
-
-              <TextField
-                label="Requester"
-                size="small"
-                value={form.requester ?? ""}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, requester: e.target.value }))
-                }
-                placeholder="e.g. Falk, Lova"
-              />
-
-              <TextField
-                label="Performer"
-                size="small"
-                value={form.performer ?? ""}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, performer: e.target.value }))
-                }
-                placeholder="(All)"
-              />
-
-              <TextField
-                label="Addition"
-                size="small"
-                value={form.addition ?? ""}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, addition: e.target.value }))
-                }
+                value={form.plannedDate}
+                onChange={setField("plannedDate")}
+                InputLabelProps={{ shrink: true }}
+                disabled={readOnly}
               />
 
               <TextField
                 label="Comment"
                 size="small"
-                value={form.comment ?? ""}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, comment: e.target.value }))
-                }
                 multiline
                 minRows={3}
+                value={form.comment}
+                onChange={setField("comment")}
+                disabled={readOnly}
               />
             </Stack>
           </Grid>
@@ -306,11 +231,13 @@ export const AddOrderDialog: React.FC<Props> = ({
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>Close</Button>
 
-        <Button variant="contained" onClick={onSave} disabled={!canSave}>
-          {mode === "edit" ? "Save changes" : "Save"}
-        </Button>
+        {mode !== "view" && (
+          <Button variant="contained" onClick={handleSave} disabled={!canSave}>
+            Save order
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

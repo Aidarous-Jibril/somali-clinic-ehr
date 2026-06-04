@@ -17,7 +17,9 @@ type Props = {
   defaultWard: string;
   defaultTeam: string;
   beds: BedSelectOption[];
+  teams: string[];
   onClose: () => void;
+  wards: string[];
   onSave: (data: AdmitPatientData) => void;
 };
 
@@ -32,15 +34,15 @@ const EMPTY_FORM: AdmitPatientData = {
   ews: "",
 };
 
-const WARD_OPTIONS = ["Stroke ward", "Medicine ward 1", "Medicine ward 2"] as const;
-const TEAM_OPTIONS = ["Blue team", "Green team", "Red team"] as const;
 
 const AdmitPatientDialog: React.FC<Props> = ({
   open,
   defaultWard,
   defaultTeam,
   beds,
+  teams,
   onClose,
+  wards,
   onSave,
 }) => {
   const [form, setForm] = useState<AdmitPatientData>({
@@ -122,7 +124,7 @@ const AdmitPatientDialog: React.FC<Props> = ({
               value={form.ward}
               onChange={updateField("ward")}
             >
-              {WARD_OPTIONS.map((w) => (
+              {wards.map((w) => (
                 <MenuItem key={w} value={w}>
                   {w}
                 </MenuItem>
@@ -137,7 +139,7 @@ const AdmitPatientDialog: React.FC<Props> = ({
               value={form.team}
               onChange={updateField("team")}
             >
-              {TEAM_OPTIONS.map((t) => (
+              {teams.map((t) => (
                 <MenuItem key={t} value={t}>
                   {t}
                 </MenuItem>

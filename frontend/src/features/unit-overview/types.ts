@@ -1,16 +1,15 @@
 // src/features/unit-overview/types.ts
 
 // ------------------------------------------------------
-// Shared / core types
+// Shared
 // ------------------------------------------------------
 
-export type DateTimeString = string; // "YYYY-MM-DD HH:mm"
+export type DateTimeString = string;
+export type YesNoUnknown = "yes" | "no" | "notAsked";
 
 // ------------------------------------------------------
-// Coordination (Samordning)
+// Coordination
 // ------------------------------------------------------
-
-export type ConsentValue = "yes" | "no" | "notAsked";
 
 export type RecipientType =
   | "Municipality"
@@ -24,59 +23,72 @@ export type CoordinationRecipient = {
 };
 
 export type CoordinationData = {
-  infoSharingConsent: ConsentValue;
-  coordinationNeeded: ConsentValue;
-  sipConsent: ConsentValue;
+  infoSharingConsent: YesNoUnknown;
+  coordinationNeeded: YesNoUnknown;
+  sipConsent: YesNoUnknown;
   adminComment: string;
   recipients: CoordinationRecipient[];
 };
 
+export type CoordinationPayload = CoordinationData & {
+  stayId: string;
+};
+
 // ------------------------------------------------------
-// Planned discharge
+// Planning
 // ------------------------------------------------------
 
-export type PlannedDischargeStatus = "notEvaluated" | "possible" | "safe";
+export type PlannedDischargeStatus =
+  | "notEvaluated"
+  | "possible"
+  | "safe";
 
 export type PlannedDischarge = {
   dateTime: DateTimeString;
   status: PlannedDischargeStatus;
 };
 
-// ------------------------------------------------------
-// Inpatient (Active contact)
-// ------------------------------------------------------
+export type PlannedTransfer = {
+  dateTime?: DateTimeString | null;
+  unit: string;
+};
 
-export type Inpatient = {
-  // Placement
-  bed: string;
-
-  // Identity
-  nationalId: string;
-  name: string;
-
-  // Monitoring
-  ews?: number;
-
-  // Organization (MVP facility layer)
-  facility: string;
-  ward: string;
-
-  // Timeline
-  startDate: DateTimeString;
-
-  // Optional workflow fields
-  technicalUnit?: string;
-  team: string;
-  absence?: string;
-  activity?: string;
-
-  // Coordination & discharge planning
-  coordination?: { hasCase: boolean };
-  plannedDischarge?: PlannedDischarge;
+export type SavePlannedDischargePayload = {
+  stayId: string;
+  date: string;
+  time: string;
+  status: string;
 };
 
 // ------------------------------------------------------
-// Transfers (domain type)
+// Inpatient
+// ------------------------------------------------------
+
+export type Inpatient = {
+  id: string;
+  encounterId: string;
+
+  bed: string;
+  nationalId: string;
+  name: string;
+
+  ward: string;
+  team: string;
+  startDate: DateTimeString;
+
+  ews?: number;
+  facility?: string;
+  technicalUnit?: string;
+  absence?: string;
+  activity?: string;
+
+  coordination?: { hasCase: boolean };
+  plannedDischarge?: PlannedDischarge;
+  plannedTransfer?: PlannedTransfer;
+};
+
+// ------------------------------------------------------
+// Transfers
 // ------------------------------------------------------
 
 export type TransferStatus = "planned" | "completedToday";
@@ -92,53 +104,29 @@ export type Transfer = {
 
   fromFacility: string;
   toFacility: string;
-
   fromUnit: string;
   toUnit: string;
 
   transferTime: DateTimeString;
+  status: TransferStatus;
 
   bedReserved?: string;
-
   technicalUnit?: string;
   specialBedNeeds?: string;
   reason?: string;
   transferDecided?: boolean;
   patientReady?: boolean;
-
-  status: TransferStatus;
 };
 
-// ------------------------------------------------------
-// Dialog payload types (moved from dialogs)
-// ------------------------------------------------------
+export type PlanTransferPayload = {
+  stayId: string;
+  staffId: string;
+  clinicId: string;
 
-export type AdmitPatientData = {
-  nationalId: string;
-  name: string;
-  bed: string;
-
-  ward: string;
-  team: string;
-
-  startDate: string;
-  startTime: string;
-
-  ews: string; // keep as string; caller can parse
-};
-
-export type BedSelectOption = {
-  id: string; // e.g. "01: 2"
-  label: string;
-  disabled?: boolean; // occupied beds
-};
-
-export type TransferPatientData = {
-  type: "Same episode" | "New episode" | "Other hospital";
+  type: string;
 
   fromFacility: string;
   fromUnit: string;
-
   toFacility: string;
   toUnit: string;
 
@@ -147,15 +135,73 @@ export type TransferPatientData = {
 
   technicalUnit: string;
   specialBedNeeds: string;
-
   reason: string;
+
+  transferDecided: boolean;
+  patientReady: boolean;
+};
+
+export type ReserveBedPayload = {
+  referralId: string;
+  bedCode: string;
+};
+
+export type TransferNowPayload = {
+  referralId: string;
+};
+
+// ------------------------------------------------------
+// Dialog Forms
+// ------------------------------------------------------
+
+export type AdmitPatientData = {
+  nationalId: string;
+  name: string;
+  bed: string;
+  ward: string;
+  team: string;
+  startDate: string;
+  startTime: string;
+  ews: string;
+};
+
+export type AdmitPatientPayload = AdmitPatientData & {
+  clinicId: string;
+};
+
+export type ChangeBedPayload = {
+  stayId: string;
+  bedCode: string;
+};
+
+export type TransferPatientData = {
+  type: "Same episode" | "New episode" | "Other hospital";
+
+  fromFacility: string;
+  fromUnit: string;
+  toFacility: string;
+  toUnit: string;
+
+  transferDate: string;
+  transferTime: string;
+
+  technicalUnit: string;
+  specialBedNeeds: string;
+  reason: string;
+
   transferDecided: boolean;
   patientReady: boolean;
 };
 
 // ------------------------------------------------------
-// Bed UI option types (moved from dialogs)
+// Beds
 // ------------------------------------------------------
+
+export type BedSelectOption = {
+  id: string;
+  label: string;
+  disabled?: boolean;
+};
 
 export type BedOption = {
   id: string;

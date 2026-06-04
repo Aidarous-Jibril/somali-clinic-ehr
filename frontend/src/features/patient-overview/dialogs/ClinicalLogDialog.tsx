@@ -11,11 +11,7 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import type { ClinicalLogEntry, ClinicalParameterName } from "../../../features/patient-overview/types";
 
-function MiniLineChart({
-  points,
-  width = 640,
-  height = 220,
-}: {
+function MiniLineChart({ points, width = 640, height = 220, }: {
   points: { xLabel: string; y: number }[];
   width?: number;
   height?: number;

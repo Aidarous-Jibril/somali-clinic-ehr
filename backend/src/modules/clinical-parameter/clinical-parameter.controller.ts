@@ -1,19 +1,37 @@
 import { Request, Response } from "express";
 import * as service from "./clinical-parameter.service.js";
 
-export const createClinicalParameter = async (
-  req: Request,
-  res: Response
-) => {
-  const entry = await service.recordClinicalParameter(req.body);
-  res.status(201).json(entry);
+export const createClinicalParameter = async ( req: Request, res: Response) => {
+  try {
+    const entry = await service.recordClinicalParameter({ ...req.body, recordedByAccountId: req.user?.accountId,  });
+
+    res.status(201).json(entry);
+
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ message: "Failed to create clinical parameter", });
+  }
 };
 
-export const listClinicalParameters = async (
-  req: Request,
-  res: Response
-) => {
-  const encounterId = String(req.params.encounterId);
-  const entries = await service.listClinicalParameters(encounterId);
-  res.json(entries);
+export const listClinicalParameters = async ( req: Request, res: Response ) => {
+  try {
+      const encounterId = String(req.params.encounterId);
+      const entries = await service.listClinicalParameters(encounterId);
+    
+      const result = entries.map((e: any) => ({
+        id: e.id,
+        name: e.name,
+        value: e.value,
+        note: e.note,
+        recordedAt: e.recordedAt,
+        recordedBy: e.recordedByAccount ? `${e.recordedByAccount.person.firstName} ${e.recordedByAccount.person.lastName}` : null,
+      }));
+    
+      res.json(result);
+  } catch (error) {
+      console.error(error);
+
+      res.status(500).json({ message: "Failed to load clinical parameters", });
+        
+      }
 };

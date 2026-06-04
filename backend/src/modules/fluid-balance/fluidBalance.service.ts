@@ -2,7 +2,7 @@
 import * as repo from "./fluidBalance.repository.js";
 import { CreateFluidBalanceInput } from "./fluidBalance.schema.js";
 
-export const registerFluidBalance = (input: CreateFluidBalanceInput) => {
+export const registerFluidBalance = (input: CreateFluidBalanceInput, user: any) => {
   const intake =
     input.oralMl +
     (input.enteralMl ?? 0);
@@ -14,6 +14,7 @@ export const registerFluidBalance = (input: CreateFluidBalanceInput) => {
     (input.vomitingMl ?? 0);
 
   return repo.createFluidBalance({
+    clinicId: user.clinicId, 
     patientId: input.patientId,
     encounterId: input.encounterId,
     measuredAt: new Date(input.measuredAt),
@@ -35,5 +36,5 @@ export const registerFluidBalance = (input: CreateFluidBalanceInput) => {
   });
 };
 
-export const listFluidBalanceForPatient = (patientId: string) =>
-  repo.findByPatient(patientId);
+export const listFluidBalanceForPatient = (patientId: string, user: any) =>
+  repo.findByPatient(patientId, user.clinicId);

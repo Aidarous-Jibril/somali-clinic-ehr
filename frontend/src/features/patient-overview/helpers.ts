@@ -1,12 +1,10 @@
+// src/features/patient-overview/helpers.ts
 import type { FluidBalanceDayModel } from "./dialogs/FluidBalanceDetailsDialog";
 import { LAB_ALIASES, LAB_CATALOG } from "./mockData";
 import type { ClinicalLogEntry, ClinicalParameterName } from "./types";
 
 
-/* -----------------------------
-   Clinical helpers
------------------------------ */
-
+/* ---------- Clinical helpers ----------- */
 export const calcAlert = (
   name: ClinicalParameterName,
   rawValue: string
@@ -16,12 +14,41 @@ export const calcAlert = (
   return !Number.isNaN(n) && n >= 5;
 };
 
+
 export const latestEntry = (
   logs: Record<ClinicalParameterName, ClinicalLogEntry[]>,
   name: ClinicalParameterName
 ) => {
   const list = logs[name] ?? [];
-  return list.length ? list[list.length - 1] : undefined;
+
+  if (!list.length) return undefined;
+
+  return [...list].sort(
+    (a, b) =>
+      new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
+  )[0];
+};
+
+
+export const mapBackendToUIName = (name: string): ClinicalParameterName => {
+  switch (name) {
+    case "NEWS2":
+      return "NEWS2";
+    case "respiratory_rate":
+      return "Respiratory rate";
+    case "spo2":
+      return "SpO₂";
+    case "pulse":
+      return "Pulse";
+    case "blood_pressure":
+      return "Blood pressure";
+    case "temperature":
+      return "Body temperature";
+    case "consciousness":
+      return "AVPU";
+    default:
+      return name as ClinicalParameterName;
+  }
 };
 
 export const toDisplayValue = (
@@ -46,9 +73,7 @@ export const toDisplayValue = (
 };
 
 
-/* -----------------------------
-   Fluid balance details mock 
------------------------------ */
+/* ---------- Fluid balance details mock ----------- */
 
 export const FLUID_SLOTS = [
   { key: "08:00–08:59", label: "08:00–08:59" },
@@ -91,9 +116,7 @@ export function makeFluidDayMock(args: {
 }
 
 
-/* -----------------------------
-   Calc Fluid Chart Max
------------------------------ */
+/* ------ Calc Fluid Chart Max ---------- */
 export const calcFluidChartMax = (entries: { intakeMl: number; outputMl: number }[]) =>
   Math.max(...entries.flatMap(e => [e.intakeMl, e.outputMl]), 1);
 
@@ -107,3 +130,78 @@ export function getLabMeta(testName: string): LabMeta | undefined {
 
   return undefined;
 }
+
+
+/* ---- Date & number helpers (Fluid / forms) ---------- */
+export const pad2 = (n: number) => String(n).padStart(2, "0");
+
+export const todayISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+};
+
+export const nowHHmm = () => {
+  const d = new Date();
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+};
+
+export const splitMeasuredAt = (measuredAt: string) => {
+  const [date, time] = measuredAt.split(" ");
+  return {
+    date: date ?? todayISO(),
+    time: (time ?? nowHHmm()).slice(0, 5),
+  };
+};
+
+export const toNumberOrZero = (s: string) => {
+  const v = Number(String(s).replace(",", "."));
+  return Number.isFinite(v) ? v : 0;
+};
+
+export const formatBalanceMl = (ml: number) => {
+  const sign = ml >= 0 ? "+" : "−";
+  return `${sign}${Math.abs(ml).toLocaleString("sv-SE")} ml`;
+};
+
+/* ------ Format Medication Dose ---------- */
+export const formatMedicationDose = (item: any) => {
+  const freq = item.frequency?.replaceAll("_", " ");
+  if (!freq) return item.dose;
+
+  const alreadyIncluded = item.dose?.toLowerCase().includes(freq);
+  return alreadyIncluded ? item.dose : `${item.dose} (${freq})`;
+};
+
+/* ---------- Referral helpers ---------- */
+export const parseReferralDetails = (value?: string) => {
+  if (!value) return null;
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    try {
+      const fixed = value.trim();
+
+      const normalized = fixed.startsWith("{")
+        ? fixed
+        : `{${fixed}}`;
+
+      return JSON.parse(normalized);
+    } catch {
+      return null;
+    }
+  }
+};
+
+export const prettifyReferralType = (value?: string) => {
+  if (!value) return "-";
+
+  return value
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+export const yesNo = (value?: boolean) => {
+  if (value === undefined || value === null) return "-";
+  return value ? "Yes" : "No";
+};

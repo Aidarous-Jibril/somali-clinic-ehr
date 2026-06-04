@@ -2,7 +2,7 @@
 import {
   UNIT_OVERVIEW_TABS,
   type UnitOverviewTabKey,
-} from "../../features/unit-overview/constants";
+} from "../../features/unit-overview/unitOverviewConstants";
 
 type Props = {
   value: UnitOverviewTabKey;

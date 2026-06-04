@@ -1,4 +1,4 @@
-// backend/src/app.ts (No changes needed)
+// backend/src/app.ts 
 import express from "express";
 import cors from "cors";
 import routes from "./routes/index.js";

@@ -1,33 +1,26 @@
 // src/features/dashboard/types.ts
 
+import type { AppointmentStatus } from "../appointments/types";
+
 // ------------------------------------------------------
 // Filters + tabs
 // ------------------------------------------------------
 
 export type DashboardFilterScope = "selected" | "all";
-export type DashboardTabKey = "calendar" | "patients" | "links";
 
-// ------------------------------------------------------
-// Care provider
-// ------------------------------------------------------
-
-export type CareProvider = {
-  id: string;
-  name: string; // "Olof Högdal"
-  title?: string; // "Leg läk"
-};
+export type DashboardTabKey = "calendar" | "patients";
 
 // ------------------------------------------------------
 // Calendar / appointments
 // ------------------------------------------------------
 
-export type AppointmentStatus = "Not arrived" | "Arrived" | "Completed" | "Cancelled";
-
 export type DashboardAppointment = {
   id: string;
-  time: string; // "11:00"
-  patientId: string; // "19 111111-1111"
+  time: string;
+  patientId: string;
   patientName: string;
+  nationalId?: string | null;
+  phone?: string | null;
   description: string;
   status?: AppointmentStatus;
 };
@@ -39,39 +32,30 @@ export type DashboardAppointment = {
 export type ReferralDirection = "out" | "in";
 
 export type ReferralStatus =
-  | "Saved"
-  | "Not assessed"
-  | "Under assessment"
+  | "Unassessed"
   | "Accepted"
-  | "Ongoing";
+  | "In progress"
+  | "Completed";
 
 export type ReferralItem = {
   id: string;
   direction: ReferralDirection;
-
-  referralDate: string; // "2026-01-20"
+  referralDate: string;
   patientId: string;
   patientName: string;
-
-  referralType: string; // "Radiology", "Physio", ...
+  referralType: string;
   status: ReferralStatus;
-
-  recipient?: string; // "Radiology dept", "VC Nord", ...
-  sender?: string; // optional
+  recipient?: string;
+  sender?: string;
 };
 
-// Summary card model (Cosmic-style right column boxes)
-export type SummaryRow = {
-  label: string;
-  value: number;
-  muted?: boolean;
-};
+// ------------------------------------------------------
+// Patients tab
+// ------------------------------------------------------
 
-export type SummaryCardModel = {
-  title: string;
-  totalText?: string; // "Total: 7" or "(3)"
-  rows?: SummaryRow[];
-  bullets?: string[];
-  emptyText?: string;
-  onOpenLabel?: string; // optional hint text for clickable header
+export type DashboardPatientItem = {
+  patientId: string;
+  patientName: string;
+  nationalId?: string | null;
+  phone?: string | null;
 };

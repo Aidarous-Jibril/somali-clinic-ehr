@@ -5,7 +5,7 @@ export const createEntry = (data: {
   name: any;
   value: string;
   note?: string;
-  recordedBy?: string;
+  recordedByAccountId?: string;
 }) => {
   return prisma.clinicalParameterEntry .create({ data });
 };
@@ -14,5 +14,13 @@ export const listByEncounter = (encounterId: string) => {
   return prisma.clinicalParameterEntry.findMany({
     where: { encounterId },
     orderBy: { recordedAt: "desc" },
+
+    include: {
+      recordedByAccount: {
+        include: {
+          person: true,
+        },
+      },
+    },
   });
 };

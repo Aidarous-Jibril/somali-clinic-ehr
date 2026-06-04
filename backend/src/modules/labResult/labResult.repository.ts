@@ -13,12 +13,27 @@ export const createLabResult = (data: {
   return prisma.labResult.create({ data });
 };
 
-export const findResultsByPatient = (patientId: string) => {
+export const findResultsByPatient = (patientId: string, clinicId: string) => {
   return prisma.labResult.findMany({
-    where: { patientId },
-    include: {
-      order: true,
+    where: { patientId, clinicId },
+   include: {
+      order: {
+        select: {
+          id: true,
+          status: true,
+          category: true,
+          name: true,
+        },
+      },
     },
     orderBy: { resultDate: "desc" },
+  });
+};
+
+export const findResultByOrderId = ( orderId: string ) => {
+  return prisma.labResult.findFirst({
+    where: {
+      orderId,
+    },
   });
 };

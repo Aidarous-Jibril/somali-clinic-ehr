@@ -1,20 +1,13 @@
 // src/components/patient-overview/ClinicalParametersWidget.tsx/**
 import React, { useState } from "react";
-import { IconButton, Popover, Tooltip } from "@mui/material";
-
+import { Popover } from "@mui/material";
 import MonitorHeartIcon from "@mui/icons-material/MonitorHeart";
-import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 
-import type {
-  ClinicalParameter,
-  ClinicalParameterName,
-  ContextMenuPosition,
-} from "../../features/patient-overview/types";
+import type { ClinicalParameter,ClinicalParameterName, ContextMenuPosition } from "../../features/patient-overview/types";
+import { formatDateTime } from "../../utils/dateFormat";
+import { AddButton } from "./common/AddButton";
 
-/* ========================================================
- * PROPS
- * ====================================================== */
-
+/* ======== PROPS =========== */
 type Props = {
   rows: ClinicalParameter[];
   onAddClick: () => void;
@@ -22,30 +15,19 @@ type Props = {
   onRequestUpdate: (name: ClinicalParameterName) => void;
 };
 
-/* ========================================================
- * COMPONENT
- * ====================================================== */
-
+/* ======== COMPONENT =========== */
 export const ClinicalParametersWidget: React.FC<Props> = ({
   rows,
   onAddClick,
   onOpenLog,
   onRequestUpdate,
 }) => {
-  /* ----------------------------
-   * Context menu state
-   * -------------------------- */
 
-  const [menuPosition, setMenuPosition] = useState<ContextMenuPosition | null>(
-    null
-  );
-  const [selectedName, setSelectedName] =
-    useState<ClinicalParameterName>("NEWS2");
+  /*  ------------ STATE -------------- */
+  const [menuPosition, setMenuPosition] = useState<ContextMenuPosition | null>( null );
+  const [selectedName, setSelectedName] = useState<ClinicalParameterName>("NEWS2");
 
-  /* ----------------------------
-   * Handlers
-   * -------------------------- */
-
+  /*  ------------Handlers------------- */
   const openContextMenu = (
     event: React.MouseEvent<HTMLTableRowElement>,
     name: ClinicalParameterName
@@ -60,10 +42,7 @@ export const ClinicalParametersWidget: React.FC<Props> = ({
 
   const closeContextMenu = () => setMenuPosition(null);
 
-  /* ======================================================
-   * RENDER
-   * ====================================================== */
-
+  /* =============RENDER ============== */
   return (
     <section className="rounded border border-gray-300 bg-white text-xs">
       {/* Header */}
@@ -78,15 +57,10 @@ export const ClinicalParametersWidget: React.FC<Props> = ({
             My unit
           </button>
 
-          <Tooltip title="Register clinical parameters">
-            <IconButton
-              size="small"
-              sx={{ color: "#1d4ed8" }}
-              onClick={onAddClick}
-            >
-              <AddCircleOutlineIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          <AddButton
+            onClick={onAddClick}
+            title="Register clinical parameters"
+          />
         </div>
       </header>
 
@@ -122,7 +96,7 @@ export const ClinicalParametersWidget: React.FC<Props> = ({
                 </td>
 
                 <td className="py-1 align-top text-gray-600">
-                  {row.date}
+                  {formatDateTime(row.date)}
                 </td>
               </tr>
             ))}

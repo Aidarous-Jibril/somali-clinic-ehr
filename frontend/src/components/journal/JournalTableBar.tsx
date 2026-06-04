@@ -1,5 +1,5 @@
 // src/components/journal/JournalTableBar.tsx
-import { CLOSE_REASON_OPTIONS } from "../../features/journal/mockData";
+import { CLOSE_REASON_OPTIONS } from "../../features/journal/templates/templates";
 import type { JournalTable } from "../../features/journal/types";
 
 

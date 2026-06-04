@@ -6,10 +6,13 @@ export const createLabResult = async (req: Request, res: Response) => {
   res.status(201).json(result);
 };
 
-export const listResultsByPatient = async (req: Request, res: Response) => {
-  const patientId = (req.params.patientId as string).trim();
 
-  const results = await service.listResultsByPatient(patientId);
+export const listResultsByPatient = async ( req: Request, res: Response ) => {
+  const results =
+    await service.listResultsByPatient(
+      String(req.params.patientId),
+      req.user!.clinicId
+    );
+
   res.json(results);
 };
-

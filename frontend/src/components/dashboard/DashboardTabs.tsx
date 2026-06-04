@@ -15,14 +15,20 @@ export const DashboardTabs: React.FC<Props> = ({ value, onChange }) => {
   return (
     <div className="border-b border-gray-200">
       <nav className="-mb-px flex gap-2 text-sm">
-        <button type="button" onClick={() => onChange("calendar")} className={`${base} ${value === "calendar" ? active : inactive}`}>
+        <button
+          type="button"
+          onClick={() => onChange("calendar")}
+          className={`${base} ${value === "calendar" ? active : inactive}`}
+        >
           My calendar
         </button>
-        <button type="button" onClick={() => onChange("patients")} className={`${base} ${value === "patients" ? active : inactive}`}>
+
+        <button
+          type="button"
+          onClick={() => onChange("patients")}
+          className={`${base} ${value === "patients" ? active : inactive}`}
+        >
           My patient list
-        </button>
-        <button type="button" onClick={() => onChange("links")} className={`${base} ${value === "links" ? active : inactive}`}>
-          My links
         </button>
       </nav>
     </div>

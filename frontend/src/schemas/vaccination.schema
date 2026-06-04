@@ -1,0 +1,13 @@
+// src/schemas/vaccination.schema.ts
+
+import { z } from "zod";
+
+export const registerVaccinationSchema = z.object({
+  patientId: z.string().min(1, "Patient is required"),
+  vaccineName: z.string().min(1, "Vaccine name is required"),
+  dose: z.string().optional(),
+});
+
+export type RegisterVaccinationFormData = z.infer<
+  typeof registerVaccinationSchema
+>;

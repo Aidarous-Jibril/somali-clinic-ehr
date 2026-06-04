@@ -1,7 +1,7 @@
 // src/features/journal/dialogs/CloseTableDialog.tsx
 import { useState } from "react";
-import { CLOSE_REASON_OPTIONS } from "../mockData";
 import type { JournalCloseReasonKey } from "../types";
+import { CLOSE_REASON_OPTIONS } from "../templates/templates";
 
 type CloseTableDialogProps = {
   open: boolean;
@@ -25,23 +25,23 @@ export function CloseTableDialog({
 
       <div className="absolute left-1/2 top-1/2 w-[560px] max-w-[calc(100vw-24px)] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white shadow-xl overflow-hidden">
         <div className="px-4 py-3 border-b">
-          <div className="text-sm font-semibold">Avsluta journaltabell</div>
+          <div className="text-sm font-semibold">End journal table</div>
           <div className="text-xs text-gray-600 mt-0.5">
-            Ange en avslutningsorsak
+           Enter a termination reason
           </div>
         </div>
 
         <div className="p-4 space-y-3">
           <div>
             <label className="block text-xs text-gray-600 mb-1">
-              Avslutningsorsak
+              Termination reason
             </label>
             <select
               value={reason}
               onChange={(e) => setReason(e.target.value as any)}
               className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm"
             >
-              <option value="">Välj…</option>
+              <option value="">Select</option>
               {CLOSE_REASON_OPTIONS.map((x) => (
                 <option key={x.key} value={x.key}>
                   {x.label}
@@ -51,7 +51,7 @@ export function CloseTableDialog({
           </div>
 
           <div>
-            <label className="block text-xs text-gray-600 mb-1">Kommentar</label>
+            <label className="block text-xs text-gray-600 mb-1">Comments</label>
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
@@ -65,7 +65,7 @@ export function CloseTableDialog({
             onClick={onClose}
             className="rounded px-4 py-2 text-sm border border-gray-300 hover:bg-gray-50"
           >
-            Avbryt
+            Cancel
           </button>
           <button
             disabled={!reason}

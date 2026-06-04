@@ -6,39 +6,72 @@ export type TubeGroup = {
   analyses: string[];
 };
 
-export type SamplingWorklistItem = {
+export type SamplingStatus =
+  | "registered"
+  | "collected"
+  | "received"
+  | "processing"
+  | "completed"
+  | "rejected";
+  
+  export type SamplingWorklistItem = {
   id: string;
 
-  // Worklist table (left)
-  dateTime: string; // e.g. "2021-03-17 11:10"
-  personId: string; // e.g. "19 400133-0002"
-  patientName: string; // e.g. "Alice Fast"
-  specialty: string; // e.g. "Clinical chemistry"
-  rid: string; // e.g. "80000857"
+  patientId: string;
 
-  // Filtering / admin (right)
-  orderingUnit: string; // e.g. "Medical ward 1"
-  requester: string; // e.g. "Johan Svärd, MD"
+  patientName: string;
+
+  personId: string;
+
+  dateTime: string;
+
+  specialty: string;
+
+  rid: string;
+
+  orderId: string;
+
+  orderingUnit: string;
+
+  requester: string;
+
   responseRecipient: string;
+
   responseRecipientUnit: string;
+
   payingUnit: string;
+
   orderIdentity: string;
 
-  plannedSamplingDate: string; // "2021-03-17"
-  plannedSamplingTime: string; // "11:10"
-  samplingDate: string; // "2021-03-17"
-  samplingTime: string; // "11:13"
+  plannedSamplingDate: string;
+
+  plannedSamplingTime: string;
+
+  samplingDate: string;
+
+  samplingTime: string;
 
   priority: SamplingPriority;
 
-  // Content (middle)
+  status: SamplingStatus;
+
+  sampleType: string;
+
+  barcode?: string;
+
+  collectedAt?: string;
+
+  receivedAt?: string;
+
+  processedAt?: string;
+
   tubeGroups: TubeGroup[];
 
-  // State flags
   printed: boolean;
+
   sent: boolean;
 
-  // Comments
   samplerComment?: string;
+
   requesterComment?: string;
 };

@@ -1,32 +1,19 @@
 import { z } from "zod";
 
 export const createReferralSchema = z.object({
-  clinicId: z.uuid(),
   patientId: z.uuid(),
   encounterId: z.uuid().optional(),
 
-  to: z.string().min(1),
-  from: z.string().min(1),
+  toUnitId: z.uuid(),
 
-  sentByRole: z.enum([
-    "Doctor",
-    "Nurse",
-    "Physiotherapist",
-    "OccupationalTherapist",
-    "Dietitian",
-    "SpeechTherapist",
-    "Midwife",
-    "Other",
-  ]),
-
-  sentByName: z.string().min(1),
-  sentByUnit: z.string().optional(),
+  fromClinicId: z.uuid().optional(),
+  fromUnitId: z.uuid().optional(),
 
   urgent: z.boolean().optional(),
   hasAdditionalInfo: z.boolean().optional(),
-
   details: z.string().optional(),
 });
+
 
 export const updateReferralStatusSchema = z.object({
   status: z.enum([

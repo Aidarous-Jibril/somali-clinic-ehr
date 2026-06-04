@@ -1,121 +1,174 @@
 // src/pages/ConsentManagementPage.tsx
 import { useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
 import {
   Button,
+  Checkbox,
   Chip,
   IconButton,
+  ListItemText,
   Menu,
   MenuItem,
   Select,
-  Checkbox,
-  ListItemText,
   Typography,
 } from "@mui/material";
-import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import AddIcon from "@mui/icons-material/Add";
+import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
+import { toast } from "react-toastify";
 
+import { useAuth } from "../context/AuthContext";
 import RegisterConsentDialog from "../features/consent/dialogs/RegisterConsentDialog";
-import {
-  CONSENT_STATUS_OPTIONS,
-  initialConsents,
-} from "../features/consent/mockData";
-import type { ConsentRecord, ConsentStatus } from "../features/consent/types";
+import type {
+  ConsentRecord,
+  ConsentStatus,
+} from "../features/consent/types";
+import { useConsents } from "../hooks/consent/useConsents";
+import { useCreateConsent } from "../hooks/consent/useCreateConsent";
+import { useUpdateConsentStatus } from "../hooks/consent/useUpdateConsentStatus";
 
-/* UI HELPERS  */
-/** Maps consent status → Chip presentation **/
-function statusChipVariant(status: ConsentStatus) {
-  switch (status) {
-    case "Active":
-      return { label: "Active", variant: "filled" as const };
-    case "Ended":
-      return { label: "Ended", variant: "outlined" as const };
-    case "Upcoming":
-      return { label: "Upcoming", variant: "outlined" as const };
-    case "Cancelled":
-      return { label: "Cancelled", variant: "outlined" as const };
-  }
-}
+const STATUS_OPTIONS: ConsentStatus[] = [
+  "active",
+  "ended",
+  "upcoming",
+  "cancelled",
+];
 
-/* PAGE COMPONENT  */
+const formatLabel = (value: string) =>
+  value.charAt(0).toUpperCase() + value.slice(1);
+
+const normalizeStatus = (status: string) =>
+  status.toLowerCase() as ConsentStatus;
+
+const getChipVariant = (status: ConsentStatus) =>
+  status === "active" ? "filled" : "outlined";
+
 export default function ConsentManagementPage() {
-  /* State  */
-  // Selected status filters (multi-select)
-  const [statusFilter, setStatusFilter] = useState<ConsentStatus[]>(["Active"]);
+  const { patientId } = useParams<{ patientId: string }>();
+  const { user } = useAuth();
 
-  // Consent records (mock → later backend)
-  const [consents, setConsents] =
-    useState<ConsentRecord[]>(initialConsents);
-
-  // Register dialog state
+  const [statusFilter, setStatusFilter] = useState<ConsentStatus[]>([
+    "active",
+  ]);
   const [registerOpen, setRegisterOpen] = useState(false);
-
-  // Row action menu state
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
-  const [menuConsentId, setMenuConsentId] = useState<string | null>(null);
+  const [selectedConsentId, setSelectedConsentId] = useState<string | null>(
+    null
+  );
 
-  /* Derived data, Filter consents by selected status */
+  const {
+    data: consents = [],
+    isLoading,
+    refetch,
+  } = useConsents(patientId);
+
+  const createConsent = useCreateConsent();
+  const updateConsent = useUpdateConsentStatus();
+
+  const organizationLine = user?.unitName
+    ? `Somali Clinic - ${user.unitName}`
+    : "Somali Clinic";
+
   const filteredConsents = useMemo(() => {
     if (!statusFilter.length) return consents;
-    return consents.filter((c) => statusFilter.includes(c.status));
+
+    return consents.filter((consent) =>
+      statusFilter.includes(normalizeStatus(consent.status))
+    );
   }, [consents, statusFilter]);
 
-
-  /* Static card header model  */
-  /* (Later can come from backend / patient context) */
-  const cardModel = useMemo(() => {
-    return {
-      title: "Shared health record",
-      organizationLine: "REGION EDUCATION, MEDICINE DIVISION",
-    };
-  }, []);
-
-  /** Count of active consents (top-right indicator) */
   const activeCount = useMemo(
-    () => consents.filter((c) => c.status === "Active").length,
+    () =>
+      consents.filter(
+        (consent) => normalizeStatus(consent.status) === "active"
+      ).length,
     [consents]
   );
 
-  /* Handlers */
-  const openMenu = (e: React.MouseEvent<HTMLElement>, consentId: string) => {
-    setMenuAnchor(e.currentTarget);
-    setMenuConsentId(consentId);
+  const openMenu = (
+    event: React.MouseEvent<HTMLElement>,
+    consentId: string
+  ) => {
+    setMenuAnchor(event.currentTarget);
+    setSelectedConsentId(consentId);
   };
 
   const closeMenu = () => {
     setMenuAnchor(null);
-    setMenuConsentId(null);
+    setSelectedConsentId(null);
   };
 
-  const updateConsentStatus = (id: string, status: ConsentStatus) => {
-    setConsents((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status } : c))
+  const handleCreate = async (
+    payload: Omit<
+      ConsentRecord,
+      "id" | "status" | "clinicId" | "patientId"
+    >
+  ) => {
+    if (!patientId || !user?.clinicId) return;
+
+    try {
+      await createConsent.mutateAsync({
+        ...payload,
+        clinicId: user.clinicId,
+        patientId,
+      });
+
+      toast.success("Consent created");
+      setRegisterOpen(false);
+      refetch();
+    } catch {
+      toast.error("Failed to create consent");
+    }
+  };
+
+  const handleStatusUpdate = async (status: ConsentStatus) => {
+    if (!selectedConsentId) return;
+
+    try {
+      await updateConsent.mutateAsync({
+        id: selectedConsentId,
+        status,
+      });
+
+      toast.success("Consent updated");
+      closeMenu();
+      refetch();
+    } catch {
+      toast.error("Failed to update consent");
+    }
+  };
+
+  if (!patientId) {
+    return (
+      <div className="p-6 text-sm text-red-600">
+        Patient ID missing
+      </div>
     );
-  };
+  }
 
-  /* RENDER */
   return (
     <div className="space-y-6">
-      {/* Page header */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <Typography variant="h5" sx={{ fontWeight: 600 }}>
             Consent management
           </Typography>
+
           <Typography variant="body2" color="text.secondary">
-            Consent Management (Cambio-inspired)
+            Manage patient consents
           </Typography>
         </div>
 
-        {/* Active consent indicator */}
         <div className="flex items-center gap-2">
           <Typography variant="body2" color="text.secondary">
-            Active Consent:
+            Active:
           </Typography>
+
           <Chip label={String(activeCount)} size="small" />
         </div>
       </div>
 
-      {/* Status filter */}
+      {/* Filter */}
       <div className="flex items-center gap-3">
         <Typography variant="body2" sx={{ width: 60 }}>
           Status
@@ -125,34 +178,38 @@ export default function ConsentManagementPage() {
           multiple
           size="small"
           value={statusFilter}
-          onChange={(e) =>
-            setStatusFilter(e.target.value as ConsentStatus[])
+          onChange={(event) =>
+            setStatusFilter(event.target.value as ConsentStatus[])
           }
           renderValue={(selected) =>
-            (selected as string[]).join(", ")
+            (selected as string[]).map(formatLabel).join(", ")
           }
-          sx={{ minWidth: 280, backgroundColor: "white" }}
+          sx={{
+            minWidth: 280,
+            backgroundColor: "white",
+          }}
         >
-          {CONSENT_STATUS_OPTIONS.map((s) => (
-            <MenuItem key={s} value={s}>
-              <Checkbox checked={statusFilter.includes(s)} />
-              <ListItemText primary={s} />
+          {STATUS_OPTIONS.map((status) => (
+            <MenuItem key={status} value={status}>
+              <Checkbox checked={statusFilter.includes(status)} />
+              <ListItemText primary={formatLabel(status)} />
             </MenuItem>
           ))}
         </Select>
       </div>
 
-      {/* Main consent card */}
+      {/* Card */}
       <div className="flex justify-center">
         <div className="w-full max-w-3xl rounded-lg border bg-white shadow-sm">
-          {/* Card header */}
+          {/* Card Header */}
           <div className="flex items-center justify-between px-6 py-5">
             <div>
               <Typography variant="h6" sx={{ fontWeight: 650 }}>
-                {cardModel.title}
+                Shared health record
               </Typography>
+
               <Typography variant="caption" color="text.secondary">
-                {cardModel.organizationLine}
+                {organizationLine}
               </Typography>
             </div>
 
@@ -165,7 +222,7 @@ export default function ConsentManagementPage() {
             </Button>
           </div>
 
-          {/* Table header */}
+          {/* Table Header */}
           <div className="border-t bg-gray-50 px-6 py-2">
             <div className="grid grid-cols-[1fr_1fr_140px_40px] gap-4 text-xs text-gray-600">
               <div>Start date</div>
@@ -177,31 +234,37 @@ export default function ConsentManagementPage() {
 
           {/* Rows */}
           <div className="divide-y">
-            {filteredConsents.length === 0 ? (
+            {isLoading ? (
               <div className="px-6 py-10 text-center text-sm text-gray-500">
-                No consents match the filter.
+                Loading...
+              </div>
+            ) : filteredConsents.length === 0 ? (
+              <div className="px-6 py-10 text-center text-sm text-gray-500">
+                No consents found.
               </div>
             ) : (
-              filteredConsents.map((c) => {
-                const chip = statusChipVariant(c.status);
+              filteredConsents.map((consent) => {
+                const status = normalizeStatus(consent.status);
 
                 return (
-                  <div key={c.id} className="px-6 py-3">
+                  <div key={consent.id} className="px-6 py-3">
                     <div className="grid grid-cols-[1fr_1fr_140px_40px] items-center gap-4">
-                      <div className="text-sm">{c.startDate}</div>
-                      <div className="text-sm">{c.endDate}</div>
+                      <div className="text-sm">{consent.startDate}</div>
+
+                      <div className="text-sm">{consent.endDate}</div>
 
                       <Chip
-                        label={chip.label}
-                        variant={chip.variant}
+                        label={formatLabel(status)}
+                        variant={getChipVariant(status)}
                         size="small"
-                        sx={{ textTransform: "none" }}
                       />
 
                       <div className="flex justify-end">
                         <IconButton
                           size="small"
-                          onClick={(e) => openMenu(e, c.id)}
+                          onClick={(event) =>
+                            openMenu(event, consent.id)
+                          }
                         >
                           <MoreHorizIcon fontSize="small" />
                         </IconButton>
@@ -213,56 +276,36 @@ export default function ConsentManagementPage() {
             )}
           </div>
 
-          {/* Footer hint */}
+          {/* Footer */}
           <div className="px-6 py-6">
             <div className="inline-block rounded border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-700">
-              Here you can view the consents that apply to the care unit your
-              login belongs to.
+              Here you can view consents for the selected patient.
             </div>
           </div>
         </div>
       </div>
 
-      {/* Row action menu */}
-      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMenu}>
-        <MenuItem
-          onClick={() => {
-            // Placeholder for future details page
-            closeMenu();
-          }}
-        >
-          View details
-        </MenuItem>
-
-        <MenuItem
-          onClick={() => {
-            if (menuConsentId)
-              updateConsentStatus(menuConsentId, "Ended");
-            closeMenu();
-          }}
-        >
+      {/* Actions Menu */}
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={closeMenu}
+      >
+        <MenuItem onClick={closeMenu}>View details</MenuItem>
+        <MenuItem onClick={() => handleStatusUpdate("ended")}>
           End consent
         </MenuItem>
-
-        <MenuItem
-          onClick={() => {
-            if (menuConsentId)
-              updateConsentStatus(menuConsentId, "Cancelled");
-            closeMenu();
-          }}
-        >
+        <MenuItem onClick={() => handleStatusUpdate("cancelled")}>
           Cancel consent
         </MenuItem>
       </Menu>
 
-      {/* Register consent dialog */}
+      {/* Register Dialog */}
       <RegisterConsentDialog
         open={registerOpen}
         onClose={() => setRegisterOpen(false)}
-        onRegister={(newConsent) =>
-          setConsents((prev) => [newConsent, ...prev])
-        }
-        organizationLine={cardModel.organizationLine}
+        onRegister={handleCreate}
+        organizationLine={organizationLine}
       />
     </div>
   );

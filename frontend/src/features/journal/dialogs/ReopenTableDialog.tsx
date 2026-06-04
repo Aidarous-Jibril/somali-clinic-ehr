@@ -18,11 +18,11 @@ export function ReopenTableDialog({
 
       <div className="absolute left-1/2 top-1/2 w-[420px] max-w-[calc(100vw-24px)] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white shadow-xl overflow-hidden">
         <div className="px-4 py-3 border-b">
-          <div className="text-sm font-semibold">Fråga</div>
+          <div className="text-sm font-semibold">Question</div>
         </div>
 
         <div className="p-4 text-sm text-gray-700">
-          Vill du återöppna journaltabellen?
+          Do you want to reopen the journal table?
         </div>
 
         <div className="px-4 py-3 border-t flex justify-end gap-2 bg-white">
@@ -30,13 +30,13 @@ export function ReopenTableDialog({
             onClick={onClose}
             className="rounded px-4 py-2 text-sm border border-gray-300 hover:bg-gray-50"
           >
-            Nej
+            No
           </button>
           <button
             onClick={onConfirm}
             className="rounded px-4 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700"
           >
-            Ja
+            Yes
           </button>
         </div>
       </div>

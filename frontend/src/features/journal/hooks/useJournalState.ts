@@ -1,10 +1,29 @@
-import { useMemo, useState } from "react";
+// src/features/journal/hooks/useJournalState.ts
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
+import { toast } from "react-toastify";
+
+import { useAuth } from "../../../context/AuthContext";
+import { usePatient } from "../../../hooks/patient/usePatient";
+import { useStaff } from "../../../hooks/staff/useStaff";
+import { useUnits } from "../../../hooks/staff/useUnits";
+import { useActiveEncounter } from "../../../hooks/encounter/useActiveEncounter";
 
 import {
-  initialJournalNotes,
-  initialJournalTables,
-  JOURNAL_VIEW_TREE,
-} from "../mockData";
+  getTables,
+  createTable,
+  getNotes,
+  createNote,
+  updateNote,
+  signNote,
+  voidNote,
+  deleteNote,
+  closeTable,
+  reopenTable,
+} from "../../../api/journal.api";
+
+import { mapNoteFromApi, mapTableFromApi } from "../mappers";
+import { filterNotesByView, matchesSearch } from "../utils";
 
 import type {
   EditorMode,
@@ -13,360 +32,359 @@ import type {
   JournalTable,
   JournalViewKey,
 } from "../types";
+import { buildJournalContent, validateJournalNote } from "../helpers/journal.helpers";
+import { JOURNAL_VIEW_TREE } from "../templates/templates";
 
-import { filterNotesByView, matchesSearch } from "../utils";
-import { JOURNAL_TEMPLATES } from "../templates/templates";
-
-/* Helpers (pure, local to this hook) */
-
-/** Create a simple unique ID for notes */
-function makeId(prefix = "note") {
-  return `${prefix}-${Math.random().toString(16).slice(2)}-${Date.now()}`;
-}
-
-/**
- * Build final note content from a selected template + section values.
- * Falls back to free-text content if no template is used.
- */
-function buildContentFromTemplate(note: JournalNote) {
-  const template = note.templateId
-    ? JOURNAL_TEMPLATES.find((t) => t.id === note.templateId)
-    : undefined;
-
-  if (!template) return (note.content ?? "").trim();
-
-  const sectionValues = note.sectionValues ?? {};
-
-  return template.sections
-    .map((s) => {
-      const value = (sectionValues[s.key] ?? "").trim();
-      return value ? `${s.label}:\n${value}` : "";
-    })
-    .filter(Boolean)
-    .join("\n\n")
-    .trim();
-}
-
-/* Journal state hook */
 
 export function useJournalState() {
-  /* View & filter state */
+  const { patientId = "" } = useParams();
+  const { user } = useAuth();
+
+  const { data: patient } = usePatient(patientId);
+  const { data: staff = [] } = useStaff();
+  const { data: units = [] } = useUnits(patient?.clinicId);
+  const { data: activeEncounter } = useActiveEncounter(patientId);
+
+  const encounters = activeEncounter ? [activeEncounter] : [];
+
+  const [tables, setTables] = useState<JournalTable[]>([]);
+  const [notes, setNotes] = useState<JournalNote[]>([]);
+
+  const [selectedTableId, setSelectedTableId] = useState("");
   const [selectedView, setSelectedView] =
     useState<JournalViewKey>("all_notes");
 
+  const [selectedNoteId, setSelectedNoteId] =
+    useState<string | null>(null);
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
-
-  /* Core data state */
-
-  const [notes, setNotes] =
-    useState<JournalNote[]>(initialJournalNotes);
-
-  const [tables, setTables] =
-    useState<JournalTable[]>(initialJournalTables);
-
-  const [selectedTableId, setSelectedTableId] = useState(
-    initialJournalTables[0]?.id ?? ""
-  );
-
-  /* Editor state */
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editorMode, setEditorMode] = useState<EditorMode>("edit");
+  const [editingNoteId, setEditingNoteId] =
+    useState<string | null>(null);
 
-  /* UI feedback */
+  const [editorMode, setEditorMode] =
+    useState<EditorMode>("edit");
 
-  const [toast, setToast] = useState<string | null>(null);
+  /* ------------Load Tables--------------- */
+  async function loadTables() {
+    if (!patientId) return;
 
-  /* Derived state */
+    const rows = await getTables(patientId);
+    let mapped = rows.map(mapTableFromApi);
 
-  /** Currently selected journal table */
+    if (!mapped.length && activeEncounter?.id) {
+      const created = await createTable({
+        patientId,
+        encounterId: activeEncounter.id,
+        title: "Patient Journal",
+        unit: activeEncounter.unitName ?? "Current Unit",
+      });
+
+      mapped = [mapTableFromApi(created)];
+    }
+
+    setTables(mapped);
+    setSelectedTableId(mapped[0]?.id ?? "");
+  }
+
+  /* -----------Load Notes------------- */
+  async function loadNotes(tableId: string) {
+    const rows = await getNotes(tableId, patientId);
+    setNotes(rows.map(mapNoteFromApi));
+  }
+
+  useEffect(() => {
+    loadTables();
+  }, [patientId, activeEncounter?.id]);
+
+  useEffect(() => {
+    if (selectedTableId) {
+      loadNotes(selectedTableId);
+    }
+  }, [selectedTableId]);
+
+  /* ------------- Derived State------------- */
   const selectedTable = useMemo(
-    () => tables.find((t) => t.id === selectedTableId) ?? null,
+    () =>
+      tables.find(
+        (table) => table.id === selectedTableId
+      ) ?? null,
     [tables, selectedTableId]
   );
 
-  /** Notes filtered by table, view, and search */
   const filteredNotes = useMemo(() => {
-    const byTable = notes.filter((n) => n.tableId === selectedTableId);
-    const byView = filterNotesByView(byTable, selectedView);
-    return byView.filter((n) => matchesSearch(n, searchQuery));
-  }, [notes, selectedTableId, selectedView, searchQuery]);
+    return filterNotesByView(notes, selectedView).filter(
+      (note) => matchesSearch(note, searchQuery)
+    );
+  }, [notes, selectedView, searchQuery]);
 
-  /**
-   * Ensure a valid selected note:
-   * - Keep current if still visible
-   * - Otherwise fallback to first filtered note
-   */
-  const effectiveSelectedNoteId = useMemo(() => {
-    if (!filteredNotes.length) return null;
-    if (selectedNoteId && filteredNotes.some((n) => n.id === selectedNoteId)) {
-      return selectedNoteId;
-    }
-    return filteredNotes[0].id;
-  }, [filteredNotes, selectedNoteId]);
+  const editingNote = useMemo(() => {
+    if (!editingNoteId) return null;
 
-  /** Currently edited note (if any) */
-  const editingNote = useMemo(
-    () =>
-      editingNoteId
-        ? notes.find((n) => n.id === editingNoteId) ?? null
-        : null,
-    [notes, editingNoteId]
-  );
+    return (
+      notes.find(
+        (note) => note.id === editingNoteId
+      ) ?? null
+    );
+  }, [notes, editingNoteId]);
 
-  /* Editor lifecycle */
-
+  /* -----------Editor---------------- */
   function closeEditor() {
     setIsEditorOpen(false);
     setEditingNoteId(null);
     setEditorMode("edit");
   }
 
-  function openNewNote() {
-    if (!selectedTable || selectedTable.status !== "Open") {
-      setToast("Journal table is closed. Reopen it to document.");
-      window.setTimeout(() => setToast(null), 2500);
-      return;
-    }
+  function updateEditingNote(
+    patch: Partial<JournalNote>
+  ) {
+    if (!editingNoteId) return;
 
-    const now = new Date();
-    const id = makeId("note");
+    setNotes((prev) =>
+      prev.map((note) =>
+        note.id === editingNoteId
+          ? { ...note, ...patch }
+          : note
+      )
+    );
+  }
 
-    const draft: JournalNote = {
-      id,
+  async function openNewNote() {
+    if (!selectedTable) return;
+
+    const created = await createNote({
       tableId: selectedTable.id,
-      type: "progress_note",
+      patientId,
       title: "New note",
-      dateTime: now.toISOString(),
-      author: "Current user",
-      unit: selectedTable.unit,
-      status: "Draft",
       content: "",
+      encounterId: activeEncounter?.id ?? null,
+      unit: user?.unitName ?? selectedTable.unit,
+      staffId: user?.id ?? null,
+    });
+
+    const mapped: JournalNote = {
+      ...mapNoteFromApi(created),
+
+      // force manual selection
+      author: "",
+      unit: "",
+      encounterLabel: "",
     };
 
-    setNotes((prev) => [draft, ...prev]);
-    setEditingNoteId(id);
+    setNotes((prev) => [mapped, ...prev]);
+    setSelectedNoteId(mapped.id);
+    setEditingNoteId(mapped.id);
     setEditorMode("edit");
     setIsEditorOpen(true);
-    setSelectedNoteId(id);
   }
 
-  /** Open note for read or edit depending on status & table */
+  async function saveEditingNote(options?: {
+    closeAfter?: boolean;
+  }) {
+    if (!editingNote) return;
+    if (!validateJournalNote(editingNote)) return;
+
+    const updated = await updateNote(
+      editingNote.id,
+      {
+        title: editingNote.title,
+        content: buildJournalContent(
+          editingNote
+        ),
+        sectionValues:
+          editingNote.sectionValues ?? {},
+
+        authorName: editingNote.author,
+        unit: editingNote.unit,
+        encounterId:
+          editingNote.encounterLabel,
+        eventDateTime:
+          editingNote.eventDateTime,
+      }
+    );
+
+    const mapped = mapNoteFromApi(updated);
+
+    setNotes((prev) =>
+      prev.map((note) =>
+        note.id === mapped.id ? mapped : note
+      )
+    );
+
+    toast.success("Note saved.");
+
+    if (options?.closeAfter) {
+      closeEditor();
+    }
+  }
+
+  async function signEditingNote() {
+    if (!editingNote) return;
+    if (!validateJournalNote(editingNote)) return;
+
+    await saveEditingNote();
+
+    const row = await signNote(
+      editingNote.id
+    );
+
+    const mapped = mapNoteFromApi(row);
+
+    setNotes((prev) =>
+      prev.map((note) =>
+        note.id === mapped.id ? mapped : note
+      )
+    );
+
+    closeEditor();
+    toast.success("Note signed.");
+  }
+
   function openNoteFromCard(id: string) {
-    const note = notes.find((n) => n.id === id);
+    const note = notes.find(
+      (item) => item.id === id
+    );
+
     if (!note) return;
 
-    const table = tables.find((t) => t.id === note.tableId);
-    const tableOpen = table?.status === "Open";
+    const isLocked =
+      selectedTable?.status === "Closed" ||
+      note.status === "Signed" ||
+      note.status === "Voided";
 
     setEditingNoteId(id);
+    setEditorMode(
+      isLocked ? "read" : "edit"
+    );
     setIsEditorOpen(true);
-
-    if (note.status === "Draft" && tableOpen) setEditorMode("edit");
-    else setEditorMode("read");
   }
 
-  function updateEditingNote(patch: Partial<JournalNote>) {
-    if (!editingNoteId || editorMode === "read") return;
+  /* ------------Note Actions----------------- */
+  async function signExistingNote(id: string) {
+    const row = await signNote(id);
+    const mapped = mapNoteFromApi(row);
 
     setNotes((prev) =>
-      prev.map((n) =>
-        n.id === editingNoteId ? { ...n, ...patch } : n
-      )
-    );
-  }
-
-  function saveEditingNote({ closeAfter }: { closeAfter?: boolean } = {}) {
-    if (!editingNoteId || editorMode === "read") return;
-
-    setNotes((prev) =>
-      prev.map((n) => {
-        if (n.id !== editingNoteId) return n;
-
-        const content = buildContentFromTemplate(n);
-        const template = n.templateId
-          ? JOURNAL_TEMPLATES.find((t) => t.id === n.templateId)
-          : undefined;
-
-        return {
-          ...n,
-          title: template ? template.label : n.title,
-          content,
-          dateTime: new Date().toISOString(),
-        };
-      })
-    );
-
-    setToast("Note saved.");
-    window.setTimeout(() => setToast(null), 2500);
-
-    if (closeAfter) closeEditor();
-  }
-
-  function signEditingNote() {
-    if (!editingNoteId || editorMode === "read") return;
-
-    setNotes((prev) =>
-      prev.map((n) => {
-        if (n.id !== editingNoteId) return n;
-
-        const content = buildContentFromTemplate(n);
-        const template = n.templateId
-          ? JOURNAL_TEMPLATES.find((t) => t.id === n.templateId)
-          : undefined;
-
-        return {
-          ...n,
-          title: template ? template.label : n.title,
-          content,
-          dateTime: new Date().toISOString(),
-          status: "Signed",
-        };
-      })
-    );
-
-    setToast("Note signed.");
-    window.setTimeout(() => setToast(null), 2500);
-    closeEditor();
-  }
-
-  /* Note actions */
-
-  function signNote(id: string) {
-    const now = new Date().toISOString();
-
-    setNotes((prev) =>
-      prev.map((n) => {
-        if (n.id !== id || n.status !== "Draft") return n;
-
-        const content = buildContentFromTemplate(n);
-        const template = n.templateId
-          ? JOURNAL_TEMPLATES.find((t) => t.id === n.templateId)
-          : undefined;
-
-        return {
-          ...n,
-          title: template ? template.label : n.title,
-          content,
-          dateTime: now,
-          status: "Signed",
-        };
-      })
-    );
-
-    setToast("Note signed.");
-    window.setTimeout(() => setToast(null), 2500);
-
-    if (editingNoteId === id) closeEditor();
-  }
-
-  function voidNote(id: string, reason: string) {
-    const now = new Date().toISOString();
-
-    setNotes((prev) =>
-      prev.map((n) =>
-        n.id !== id
-          ? n
-          : {
-              ...n,
-              status: "Voided",
-              voidedAt: now,
-              voidReason: reason.trim() || "No reason specified",
-              dateTime: now,
-            }
+      prev.map((note) =>
+        note.id === id ? mapped : note
       )
     );
 
-    setToast("Note cancelled (voided).");
-    window.setTimeout(() => setToast(null), 2500);
-
-    if (editingNoteId === id) closeEditor();
+    toast.success("Note signed.");
   }
 
-  function deleteNote(id: string) {
-    setNotes((prev) => prev.filter((n) => n.id !== id));
-    setSelectedNoteId((prev) => (prev === id ? null : prev));
+  async function voidExistingNote(
+    id: string,
+    reason: string
+  ) {
+    const row = await voidNote(id, reason);
+    const mapped = mapNoteFromApi(row);
 
-    setToast("Note deleted.");
-    window.setTimeout(() => setToast(null), 2500);
+    setNotes((prev) =>
+      prev.map((note) =>
+        note.id === id ? mapped : note
+      )
+    );
 
-    if (editingNoteId === id) closeEditor();
+    toast.success("Note voided.");
   }
 
-  /* Journal table lifecycle */
+  async function removeExistingNote(id: string) {
+    await deleteNote(id);
 
-  function closeSelectedTable(
+    setNotes((prev) =>
+      prev.filter((note) => note.id !== id)
+    );
+
+    if (selectedNoteId === id) {
+      setSelectedNoteId(null);
+    }
+
+    if (editingNoteId === id) {
+      closeEditor();
+    }
+
+    toast.success("Note deleted.");
+  }
+
+  /* ---------- Table Actions ------------- */
+  async function closeSelectedTable(
     reason: JournalCloseReasonKey,
     comment: string
   ) {
-    if (!selectedTable || selectedTable.status !== "Open") return;
+    if (!selectedTable) return;
 
-    const now = new Date().toISOString();
+    const row = await closeTable(
+      selectedTable.id,
+      reason,
+      comment
+    );
+
+    const mapped = mapTableFromApi(row);
 
     setTables((prev) =>
-      prev.map((t) =>
-        t.id !== selectedTable.id
-          ? t
-          : {
-              ...t,
-              status: "Closed",
-              closedAt: now,
-              closeReason: reason,
-              closeComment: comment,
-            }
+      prev.map((table) =>
+        table.id === mapped.id
+          ? mapped
+          : table
       )
     );
 
-    setToast("Journal table closed.");
-    window.setTimeout(() => setToast(null), 2500);
-
-    if (editingNoteId) {
-      const n = notes.find((x) => x.id === editingNoteId);
-      if (n?.tableId === selectedTable.id) closeEditor();
-    }
+    closeEditor();
+    toast.success(
+      "Journal table closed."
+    );
   }
 
-  function reopenSelectedTable() {
-    if (!selectedTable || selectedTable.status !== "Closed") return;
+  async function reopenSelectedTable() {
+    if (!selectedTable) return;
+
+    const row = await reopenTable(
+      selectedTable.id
+    );
+
+    const mapped = mapTableFromApi(row);
 
     setTables((prev) =>
-      prev.map((t) =>
-        t.id !== selectedTable.id
-          ? t
-          : {
-              ...t,
-              status: "Open",
-              closedAt: undefined,
-              closeReason: undefined,
-              closeComment: undefined,
-            }
+      prev.map((table) =>
+        table.id === mapped.id
+          ? mapped
+          : table
       )
     );
 
-    setToast("Journal table reopened. You can document again.");
-    window.setTimeout(() => setToast(null), 2500);
+    toast.success(
+      "Journal table reopened."
+    );
   }
 
-  /* Public API*/
-
+  /* -----------Public API  ------------- */
   return {
     viewTree: JOURNAL_VIEW_TREE,
 
+    tables,
+    selectedTable,
+    selectedTableId,
+    setSelectedTableId,
+
     selectedView,
     setSelectedView,
+
     searchQuery,
     setSearchQuery,
 
     filteredNotes,
-    selectedNoteId: effectiveSelectedNoteId,
+    selectedNoteId,
     setSelectedNoteId,
 
     isEditorOpen,
     editingNote,
     editorMode,
-    toast,
+
+    encounters,
+    staff,
+    units,
 
     openNewNote,
     openNoteFromCard,
@@ -375,14 +393,10 @@ export function useJournalState() {
     saveEditingNote,
     signEditingNote,
 
-    voidNote,
-    deleteNote,
-    signNote,
+    signNote: signExistingNote,
+    voidNote: voidExistingNote,
+    deleteNote: removeExistingNote,
 
-    tables,
-    selectedTable,
-    selectedTableId,
-    setSelectedTableId,
     closeSelectedTable,
     reopenSelectedTable,
   };

@@ -36,19 +36,7 @@ const Sidebar: React.FC<Props> = ({
 
         <li>
           <NavLink to="/patients" className={({ isActive }) => `${navLinkClass} ${isActive ? activeClass : ""}`}>
-            Patient overview
-          </NavLink>
-        </li>
-
-        <li>
-          <NavLink to="/journal" className={({ isActive }) => `${navLinkClass} ${isActive ? activeClass : ""}`}>
-            Journal
-          </NavLink>
-        </li>
-
-        <li>
-          <NavLink to="/medications" className={({ isActive }) => `${navLinkClass} ${isActive ? activeClass : ""}`}>
-            Medications
+            Patients
           </NavLink>
         </li>
 

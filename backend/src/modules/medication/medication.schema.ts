@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 export const createMedicationSchema = z.object({
-  clinicId: z.uuid(),
   patientId: z.uuid(),
   encounterId: z.uuid().optional(),
 
@@ -16,6 +15,33 @@ export const createMedicationSchema = z.object({
     "four_times_daily",
     "as_needed",
   ]),
+
+    // Additional medication fields
+  form: z.string().optional(),
+
+  groupType: z.enum([
+    "current",
+    "prn",
+    "notScheduled",
+    "generalDirective",
+  ]).optional(),
+
+  dosingText: z.string().optional(),
+  indication: z.string().optional(),
+
+  route: z.enum([
+    "oral",
+    "intravenous",
+    "intramuscular",
+    "subcutaneous",
+    "inhalation",
+    "topical",
+    "rectal",
+    "ophthalmic",
+    "otic",
+    "nasal",
+    "other",
+  ]).optional(),
 
   notes: z.string().optional(),
 });

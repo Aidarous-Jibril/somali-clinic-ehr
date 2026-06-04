@@ -9,14 +9,11 @@ import {
   Tooltip,
 } from "@mui/material";
 
-import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import CloseIcon from "@mui/icons-material/Close";
 
-import type {
-  Referral,
-  ReferralStatus,
-} from "../../features/patient-overview/types";
+import type { Referral, ReferralStatus, } from "../../features/patient-overview/types";
+import { AddButton } from "./common/AddButton";
 
 /* ================ PROPS ================== */
 type Props = {
@@ -66,16 +63,12 @@ export const ReferralsWidget: React.FC<Props> = ({
               </IconButton>
             </Tooltip>
 
-            <Tooltip title="Add referral">
-              <IconButton
-                size="small"
-                sx={{ color: "#1d4ed8" }}
+            {onAddClick && (
+              <AddButton
                 onClick={onAddClick}
-                disabled={!onAddClick}
-              >
-                <AddCircleOutlineIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+                title="Add referral"
+              />
+            )}
           </div>
         </header>
 
@@ -102,7 +95,7 @@ export const ReferralsWidget: React.FC<Props> = ({
                     From: {referral.from}
                   </div>
                   <div className="text-[11px] text-gray-600">
-                    Sent by: {referral.sentByName} ({referral.sentByRole})
+                    Sent by: {referral.sentByName ?? "-"} {referral.sentByRole ? ` (${referral.sentByRole})` : ""}
                   </div>
 
                   {referral.hasAdditionalInfo && (

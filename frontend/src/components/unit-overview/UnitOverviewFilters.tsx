@@ -2,7 +2,7 @@
 import {
   MEDICAL_RESPONSIBLE_UNIT_OPTIONS,
   WARD_UNIT_FILTER_OPTIONS,
-} from "../../features/unit-overview/constants";
+} from "../../features/unit-overview/unitOverviewConstants";
 
 // -----------------------------------------------------------------------------
 // Types

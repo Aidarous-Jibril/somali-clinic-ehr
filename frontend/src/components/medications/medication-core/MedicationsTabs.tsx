@@ -1,5 +1,6 @@
 // src/components/medications/MedicationsTabs.tsx
 import { Tabs, Tab } from "@mui/material";
+import { useSearchParams } from "react-router-dom";
 import type { MedicationTabKey } from "../../../features/medications/types";
 
 const tabs: { key: MedicationTabKey; label: string }[] = [
@@ -11,26 +12,38 @@ const tabs: { key: MedicationTabKey; label: string }[] = [
   { key: "new", label: "New..." },
 ];
 
-export function MedicationsTabs({
-  value,
-  onChange,
-}: {
-  value: MedicationTabKey;
-  onChange: (v: MedicationTabKey) => void;
-}) {
+export function MedicationsTabs({ value, onChange }: { value: MedicationTabKey; onChange: (v: MedicationTabKey) => void; }) {
+  const [, setSearchParams] = useSearchParams();
+
+  const handleChange = (_: React.SyntheticEvent, v: MedicationTabKey) => {
+    // Update local state in parent
+    onChange(v);
+
+    // Update URL, eg /patients/:patientId/medications?tab=vaccinations
+    setSearchParams({ tab: v });
+  };
+
   return (
     <Tabs
       value={value}
-      onChange={(_, v) => onChange(v)}
+      onChange={handleChange}
       variant="scrollable"
       scrollButtons="auto"
       sx={{
         minHeight: 36,
-        "& .MuiTab-root": { minHeight: 36, textTransform: "none", fontSize: 13 },
+        "& .MuiTab-root": {
+          minHeight: 36,
+          textTransform: "none",
+          fontSize: 13,
+        },
       }}
     >
-      {tabs.map((t) => (
-        <Tab key={t.key} value={t.key} label={t.label} />
+      {tabs.map((tab) => (
+        <Tab
+          key={tab.key}
+          value={tab.key}
+          label={tab.label}
+        />
       ))}
     </Tabs>
   );

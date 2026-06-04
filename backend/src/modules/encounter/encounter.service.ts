@@ -1,10 +1,13 @@
 import * as repo from "./encounter.repository.js";
 import { CreateEncounterInput } from "./encounter.schema.js";
 
-export const createEncounter = async (input: CreateEncounterInput) => {
-  // 🔒 HARD EHR RULE:
-  // A patient can have only ONE open encounter
-  const existing = await repo.findOpenEncounter(input.patientId);
+type CreateEncounterWithClinic = CreateEncounterInput & {
+    clinicId: string;
+  };
+  
+
+export const createEncounter = async ( input: CreateEncounterWithClinic ) => {
+  const existing = await repo.findOpenEncounter( input.patientId );
 
   if (existing) {
     throw {
@@ -22,10 +25,14 @@ export const createEncounter = async (input: CreateEncounterInput) => {
   });
 };
 
-export const listEncountersByPatient = (patientId: string) => {
+export const listEncountersByPatient = ( patientId: string ) => {
   return repo.listEncountersByPatient(patientId);
 };
 
-export const closeEncounter = async (encounterId: string) => {
+export const getActiveEncounter = ( patientId: string ) => {
+  return repo.findOpenEncounter(patientId);
+};
+
+export const closeEncounter = ( encounterId: string ) => {
   return repo.closeEncounter(encounterId);
 };

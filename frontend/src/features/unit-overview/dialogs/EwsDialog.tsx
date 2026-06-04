@@ -1,5 +1,5 @@
-// src/features/unit-overview/dialogs/EwsDialog.tsx
-import React, { useEffect, useMemo, useState } from "react";
+//src/features/unit-overview/dialogs/EwsDialog.tsx
+import { useEffect, useState } from "react";
 import {
   Button,
   Dialog,
@@ -12,314 +12,229 @@ import {
   RadioGroup,
   TextField,
 } from "@mui/material";
+import { toast } from "react-toastify";
+
 import type { Inpatient } from "../types";
+import { useCreateClinicalEntry } from "../../../hooks/journal/useCreateClinicalEntry";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
-export type EwsMeasurementData = {
-  date: string;
-  time: string;
-  dateTime: string;
-
-  respiratoryRate: string;
-  spo2: string;
-
-  hasOxygen: "yes" | "no";
-  oxygenLiters: string;
-
-  systolicBP: string;
-  diastolicBP: string;
-  pulse: string;
-
-  consciousness: string;
-  temperature: string;
-
-  score: string;
-  comment: string;
-};
-
-type EwsDialogProps = {
+type Props = {
   open: boolean;
   patient: Inpatient | null;
   onClose: () => void;
-  onSave: (data: EwsMeasurementData) => void;
+  onSaved?: () => void;
 };
 
-// -----------------------------------------------------------------------------
-// Constants + helpers
-// -----------------------------------------------------------------------------
+type FormState = {
+  respiratoryRate: string;
+  spo2: string;
+  pulse: string;
+  systolic: string;
+  diastolic: string;
+  temperature: string;
+  consciousness: string;
+  score: string;
+  comment: string;
+  oxygen: "no" | "yes";
+};
 
-const DEFAULT_FORM: EwsMeasurementData = {
-  date: "",
-  time: "",
-  dateTime: "",
+const emptyForm: FormState = {
   respiratoryRate: "",
   spo2: "",
-  hasOxygen: "no",
-  oxygenLiters: "",
-  systolicBP: "",
-  diastolicBP: "",
   pulse: "",
-  consciousness: "alert",
+  systolic: "",
+  diastolic: "",
   temperature: "",
+  consciousness: "alert",
   score: "",
   comment: "",
+  oxygen: "no",
 };
 
-const buildDateTime = (date: string, time: string) => {
-  if (!date || !time) return "";
-  return `${date} ${time}`;
-};
+export default function EwsDialog({
+  open,
+  patient,
+  onClose,
+  onSaved,
+}: Props) {
+  const [form, setForm] = useState<FormState>(emptyForm);
 
-// -----------------------------------------------------------------------------
-// Component
-// -----------------------------------------------------------------------------
-
-const EwsDialog: React.FC<EwsDialogProps> = ({ open, patient, onClose, onSave }) => {
-  // ---------------------------------------------------------------------------
-  // State
-  // ---------------------------------------------------------------------------
-
-  const [form, setForm] = useState<EwsMeasurementData>(DEFAULT_FORM);
-
-  // derived (handy for render)
-  const showOxygenLiters = useMemo(() => form.hasOxygen === "yes", [form.hasOxygen]);
-
-  // ---------------------------------------------------------------------------
-  // Effects
-  // ---------------------------------------------------------------------------
+  const mutation = useCreateClinicalEntry();
 
   useEffect(() => {
-    if (!open) return;
-
-    const now = new Date();
-    const date = now.toISOString().slice(0, 10);
-    const hh = `${now.getHours()}`.padStart(2, "0");
-    const mm = `${now.getMinutes()}`.padStart(2, "0");
-    const time = `${hh}:${mm}`;
-
-    setForm({
-      ...DEFAULT_FORM,
-      date,
-      time,
-      dateTime: buildDateTime(date, time),
-    });
+    if (open) setForm(emptyForm);
   }, [open]);
 
-  // ---------------------------------------------------------------------------
-  // Handlers
-  // ---------------------------------------------------------------------------
+  const setField =
+    (key: keyof FormState) =>
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      setForm((prev) => ({
+        ...prev,
+        [key]: e.target.value,
+      }));
 
-  const updateField =
-    (field: keyof EwsMeasurementData) =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value;
+  const saveEntry = async (
+    name: string,
+    value: string
+  ) => {
+    if (!patient?.encounterId || !value) return;
 
-      setForm((prev) => {
-        const next = { ...prev, [field]: value };
-
-        // keep dateTime in sync if date or time changes
-        if (field === "date" || field === "time") {
-          const date = field === "date" ? value : next.date;
-          const time = field === "time" ? value : next.time;
-          next.dateTime = buildDateTime(date, time);
-        }
-
-        // if oxygen switched off, clear liters
-        if (field === "hasOxygen" && value === "no") {
-          next.oxygenLiters = "";
-        }
-
-        return next;
-      });
-    };
-
-  const setHasOxygen = (v: "yes" | "no") => {
-    setForm((prev) => ({
-      ...prev,
-      hasOxygen: v,
-      oxygenLiters: v === "no" ? "" : prev.oxygenLiters,
-    }));
+    await mutation.mutateAsync({
+      encounterId: patient.encounterId,
+      name,
+      value,
+      note: form.comment || undefined,
+    });
   };
 
-  const handleSave = () => {
-    const payload: EwsMeasurementData = {
-      ...form,
-      dateTime: form.dateTime || buildDateTime(form.date, form.time),
-      comment: form.comment.trim(),
-    };
-    onSave(payload);
-  };
+  const handleSave = async () => {
+    try {
+      if (!patient?.encounterId) {
+        toast.error("Missing encounter");
+        return;
+      }
 
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
+      await Promise.all([
+        saveEntry("NEWS2", form.score),
+        saveEntry(
+          "respiratory_rate",
+          form.respiratoryRate
+        ),
+        saveEntry("spo2", form.spo2),
+        saveEntry("pulse", form.pulse),
+        saveEntry(
+          "blood_pressure",
+          `${form.systolic}/${form.diastolic}`
+        ),
+        saveEntry("temperature", form.temperature),
+        saveEntry(
+          "consciousness",
+          form.consciousness
+        ),
+      ]);
+
+      toast.success("NEWS/EWS saved");
+      onSaved?.();
+      onClose();
+    } catch {
+      toast.error("Failed to save NEWS/EWS");
+    }
+  };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>Add EWS / NEWS</DialogTitle>
 
-      <DialogContent>
-        {!patient ? null : (
-          <div className="mt-2 space-y-3 text-sm">
-            {/* Patient header */}
-            <div>
-              <span className="font-semibold">Patient: </span>
-              {patient.name} ({patient.nationalId})
-            </div>
-
-            {/* Date / time */}
-            <div className="flex gap-2">
-              <TextField
-                label="Date"
-                type="date"
-                size="small"
-                value={form.date}
-                onChange={updateField("date")}
-                InputLabelProps={{ shrink: true }}
-              />
-              <TextField
-                label="Time"
-                type="time"
-                size="small"
-                value={form.time}
-                onChange={updateField("time")}
-                InputLabelProps={{ shrink: true }}
-              />
-            </div>
-
-            {/* Respiratory rate */}
-            <TextField
-              label="Respiratory rate (/min)"
-              type="number"
-              size="small"
-              fullWidth
-              value={form.respiratoryRate}
-              onChange={updateField("respiratoryRate")}
-            />
-
-            {/* SpO2 + oxygen */}
-            <div className="flex flex-col gap-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <TextField
-                  label="Oxygen saturation (%)"
-                  type="number"
-                  size="small"
-                  value={form.spo2}
-                  onChange={updateField("spo2")}
-                />
-
-                <RadioGroup
-                  row
-                  value={form.hasOxygen}
-                  onChange={(e) => setHasOxygen(e.target.value as "yes" | "no")}
-                >
-                  <FormControlLabel value="no" control={<Radio size="small" />} label="No O₂" />
-                  <FormControlLabel value="yes" control={<Radio size="small" />} label="O₂" />
-                </RadioGroup>
-              </div>
-
-              {showOxygenLiters && (
-                <TextField
-                  label="Oxygen (L/min)"
-                  type="number"
-                  size="small"
-                  value={form.oxygenLiters}
-                  onChange={updateField("oxygenLiters")}
-                />
-              )}
-            </div>
-
-            {/* Blood pressure + pulse */}
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <TextField
-                label="Systolic blood pressure (mmHg)"
-                type="number"
-                size="small"
-                fullWidth
-                value={form.systolicBP}
-                onChange={updateField("systolicBP")}
-              />
-              <TextField
-                label="Diastolic blood pressure (mmHg)"
-                type="number"
-                size="small"
-                fullWidth
-                value={form.diastolicBP}
-                onChange={updateField("diastolicBP")}
-              />
-              <TextField
-                label="Pulse rate (/min)"
-                type="number"
-                size="small"
-                fullWidth
-                value={form.pulse}
-                onChange={updateField("pulse")}
-              />
-            </div>
-
-            {/* Consciousness */}
-            <TextField
-              label="Level of consciousness"
-              size="small"
-              select
-              fullWidth
-              value={form.consciousness}
-              onChange={updateField("consciousness")}
-              helperText="Based on AVPU / NEWS2 scoring"
-            >
-              <MenuItem value="alert">Alert (0 points)</MenuItem>
-              <MenuItem value="confused">New confusion (3 points)</MenuItem>
-              <MenuItem value="responseVoice">Responds to voice (3 points)</MenuItem>
-              <MenuItem value="responsePain">Responds to pain (3 points)</MenuItem>
-              <MenuItem value="unresponsive">Unresponsive (3 points)</MenuItem>
-            </TextField>
-
-            {/* Temperature */}
-            <TextField
-              label="Temperature (°C)"
-              type="number"
-              size="small"
-              fullWidth
-              value={form.temperature}
-              onChange={updateField("temperature")}
-            />
-
-            {/* Total score */}
-            <TextField
-              label="NEWS / EWS score"
-              type="number"
-              size="small"
-              fullWidth
-              value={form.score}
-              onChange={updateField("score")}
-              helperText="Calculated according to local NEWS2 rules (enter final score here)."
-            />
-
-            {/* Comment */}
-            <TextField
-              label="Comment (optional)"
-              size="small"
-              fullWidth
-              multiline
-              minRows={2}
-              value={form.comment}
-              onChange={updateField("comment")}
-            />
+      <DialogContent className="space-y-4 pt-2">
+        {patient && (
+          <div className="font-medium">
+            Patient: {patient.name} ({patient.nationalId})
           </div>
         )}
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <TextField
+            label="NEWS2"
+            size="small"
+            value={form.score}
+            onChange={setField("score")}
+          />
+
+          <TextField
+            label="Respiratory rate"
+            size="small"
+            value={form.respiratoryRate}
+            onChange={setField("respiratoryRate")}
+          />
+
+          <TextField
+            label="Pulse"
+            size="small"
+            value={form.pulse}
+            onChange={setField("pulse")}
+          />
+
+          <TextField
+            label="SpO₂"
+            size="small"
+            value={form.spo2}
+            onChange={setField("spo2")}
+          />
+
+          <TextField
+            label="Temperature"
+            size="small"
+            value={form.temperature}
+            onChange={setField("temperature")}
+          />
+
+          <TextField
+            select
+            label="Consciousness"
+            size="small"
+            value={form.consciousness}
+            onChange={setField("consciousness")}
+          >
+            <MenuItem value="alert">Alert</MenuItem>
+            <MenuItem value="voice">Voice</MenuItem>
+            <MenuItem value="pain">Pain</MenuItem>
+            <MenuItem value="unresponsive">
+              Unresponsive
+            </MenuItem>
+          </TextField>
+
+          <TextField
+            label="Systolic BP"
+            size="small"
+            value={form.systolic}
+            onChange={setField("systolic")}
+          />
+
+          <TextField
+            label="Diastolic BP"
+            size="small"
+            value={form.diastolic}
+            onChange={setField("diastolic")}
+          />
+        </div>
+
+        <RadioGroup
+          row
+          value={form.oxygen}
+          onChange={setField("oxygen")}
+        >
+          <FormControlLabel
+            value="no"
+            control={<Radio />}
+            label="No O₂"
+          />
+          <FormControlLabel
+            value="yes"
+            control={<Radio />}
+            label="O₂"
+          />
+        </RadioGroup>
+
+        <TextField
+          label="Comment"
+          fullWidth
+          multiline
+          minRows={2}
+          value={form.comment}
+          onChange={setField("comment")}
+        />
       </DialogContent>
 
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave}>
+
+        <Button
+          variant="contained"
+          onClick={handleSave}
+          disabled={mutation.isPending}
+        >
           Save
         </Button>
       </DialogActions>
     </Dialog>
   );
-};
-
-export default EwsDialog;
+}

@@ -1,6 +1,6 @@
 // src/pages/PatientOverviewPage.tsx
 import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { PatientBanner } from "../components/patient-overview/PatientBanner";
 import { InfoSourceSelector } from "../components/patient-overview/InfoSourceSelector";
@@ -18,7 +18,8 @@ import { ClinicalRegisterDialog } from "../features/patient-overview/dialogs/Cli
 import { AddOrderDialog } from "../features/patient-overview/dialogs/AddOrderDialog";
 import { ReferralDetailsDialog } from "../features/patient-overview/dialogs/ReferralDetailsDialog";
 import { AddReferralDialog } from "../features/patient-overview/dialogs/AddReferralDialog";
-import { CareOverviewWidget } from "../components/patient-overview/CareOverviewWidget";
+import { useCreateOrder } from "../hooks/orders/useCreateOrder";
+import { useUpdateOrder } from "../hooks/orders/useUpdateOrder";
 
 import type {
   InfoSource,
@@ -26,308 +27,252 @@ import type {
   ReferralStatus,
   Order,
   OrderResult,
-  ClinicalParameter,
   ClinicalParameterName,
-  ClinicalLogEntry,
   FluidBalanceEntry,
   OrderForm,
-  ClinicalRegisterForm,
   ClinicalUpdateForm,
 } from "../features/patient-overview/types";
 
-import {
-  CONSCIOUSNESS_OPTIONS,
-  MOCK_CLINICAL_LOGS,
-  MOCK_FLUID_BALANCE,
-  MOCK_ORDER_RESULTS,
-  MOCK_REFERRALS,
-  MOCK_ORDERS,
-  MOCK_CARE_CONTACTS,
-} from "../features/patient-overview/mockData";
-
-import {
-  FluidBalanceDetailsDialog,
-  type FluidBalanceDayModel,
-} from "../features/patient-overview/dialogs/FluidBalanceDetailsDialog";
-
+import {CONSCIOUSNESS_OPTIONS, } from "../features/patient-overview/mockData";
+import { FluidBalanceDetailsDialog } from "../features/patient-overview/dialogs/FluidBalanceDetailsDialog";
 import { AddFluidDialog } from "../features/patient-overview/dialogs/AddFluidDialog";
-import { calcAlert, FLUID_SLOTS, latestEntry, makeFluidDayMock } from "../features/patient-overview/helpers";
+import { calcAlert, latestEntry,} from "../features/patient-overview/helpers";
+import { usePatient } from "../hooks/patient/usePatient";
+import { useOrders } from "../hooks/orders/useOrders";
+import { mapUiCategoryToBackend } from "../api/utils/orderMapper";
+import { useActiveEncounter } from "../hooks/encounter/useActiveEncounter";
+import { toast } from "react-toastify";
+import { useClinicalParameters } from "../hooks/journal/useClinicalParameters";
+import { useCreateClinicalEntry } from "../hooks/journal/useCreateClinicalEntry"
+// useCreateClinicalEntry";
+import { buildClinicalParameterRows, mapClinicalEntriesToLogs } from "../features/patient-overview/mappers/clinical.mapper";
+import { useMedications } from "../hooks/medications/useMedications";
+import { useVaccinations } from "../hooks/vaccination/useVaccinations";
+import { useReferrals } from "../hooks/referrals/useReferrals";
+import { useUpdateReferralStatus } from "../hooks/referrals/useUpdateReferralStatus";
+import { useCreateReferral } from "../hooks/referrals/useCreateReferral";
+import { mapReferralToUi, mapUiStatusToBackend } from "../features/patient-overview/mappers/referral.mapper";
+import { useCreateFluidBalance, useFluidBalance, } from "../hooks/encounter/useFluidBalance";
+import { useLabResults } from "../hooks/labs/useLabResults";
+import { useAuth } from "../context/AuthContext";
+import { IncomingReferralsWidget } from "../components/patient-overview/IncomingReferralsWidget";
 
-// -----------------------------
-// Helpers
-// -----------------------------
-
-
-const toDisplayValue = (name: ClinicalParameterName, entry?: ClinicalLogEntry) => {
-  if (!entry) return "-";
-  switch (name) {
-    case "Respiratory rate":
-      return `${entry.value} / min`;
-    case "SpO₂":
-      return `${entry.value} % (${entry.note ?? "0 L"})`;
-    case "Pulse":
-      return `${entry.value} / min`;
-    case "Blood pressure":
-      return `${entry.value} mmHg`;
-    case "Body temperature":
-      return `${entry.value} °C`;
-    default:
-      return entry.value;
-  }
-};
-
-// -----------------------------
-// Fluid balance details mock (Cosmic-like table)
-// -----------------------------
-
-
-// -----------------------------
-// Page
-// -----------------------------
+// -------------Page----------------
 const PatientOverviewPage = () => {
+  // ================== CORE ==================
   const { patientId } = useParams<{ patientId?: string }>();
+  const navigate = useNavigate();
 
-  const patient = {
-    id: patientId ?? "19 141414-1414",
-    name: "Testsson, Namn",
-    age: 78,
-    unit: "Stroke ward",
-  };
-
+  const { data: patient, isLoading, isError } = usePatient(patientId);
+  const { data: activeEncounter, isLoading: encounterLoading } = useActiveEncounter(patientId);
   const [infoSource, setInfoSource] = useState<InfoSource>("myUnit");
 
-  // Referrals
-  const [referrals, setReferrals] = useState<Referral[]>(MOCK_REFERRALS);
-  const [referralFilterAnchor, setReferralFilterAnchor] = useState<HTMLElement | null>(null);
-  const [selectedReferralStatuses, setSelectedReferralStatuses] = useState<ReferralStatus[]>([
-    "Unassessed",
-    "Accepted",
-    "In progress",
-    "Completed",
-  ]);
-  const [selectedReferral, setSelectedReferral] = useState<Referral | null>(null);
-  const allReferralStatuses: ReferralStatus[] = ["Unassessed", "Accepted", "In progress", "Completed"];
-  const [openAddReferralDialog, setOpenAddReferralDialog] = useState(false);
+  const { user } = useAuth();
+
+  // ================== ORDERS ==================
+  const createOrderMutation = useCreateOrder();
+  const updateOrderMutation = useUpdateOrder(activeEncounter?.id);
+
+  const { data: orders = [] } = useOrders(activeEncounter?.id);
+
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
-
-  const handleToggleReferralStatus = (status: ReferralStatus) => {
-    setSelectedReferralStatuses((prev) => (prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]));
-  };
-
-  const filteredReferrals = useMemo(
-    () => referrals.filter((r) => selectedReferralStatuses.includes(r.status)),
-    [referrals, selectedReferralStatuses]
-  );
-
-  // Orders + results
-  const [orders, setOrders] = useState<Order[]>(MOCK_ORDERS);
-  const [orderResults, setOrderResults] = useState<OrderResult[]>(MOCK_ORDER_RESULTS);
-  const [resultSearch, setResultSearch] = useState("");
-
-  // Clinical
-  const [clinicalLogs, setClinicalLogs] = useState<Record<ClinicalParameterName, ClinicalLogEntry[]>>(MOCK_CLINICAL_LOGS);
-
-  const clinicalParameters: ClinicalParameter[] = useMemo(() => {
-    const names: ClinicalParameterName[] = [
-      "NEWS2",
-      "AVPU",
-      "Respiratory rate",
-      "SpO₂",
-      "Pulse",
-      "Blood pressure",
-      "Body temperature",
-    ];
-
-    return names.map((name) => {
-      const latest = latestEntry(clinicalLogs, name);
-      return {
-        name,
-        value: toDisplayValue(name, latest),
-        date: latest?.dateTime ?? "-",
-        alert: name === "NEWS2" ? calcAlert("NEWS2", latest?.value ?? "") : false,
-      };
-    });
-  }, [clinicalLogs]);
-
-  // Fluid entries (registered values)
-  const [fluidBalanceEntries, setFluidBalanceEntries] = useState<FluidBalanceEntry[]>(MOCK_FLUID_BALANCE);
-
-  // Fluid details dialog mock days
-  const fluidDays = useMemo<FluidBalanceDayModel[]>(
-    () => [
-      makeFluidDayMock({
-        title: "Fluid balance for 04-15 06:00 – 04-16 05:59",
-        oralMl: 100,
-        medFluidMl: 1000,
-        totalOutMl: 500,
-        planned: [
-          { name: "Cloxacillin Stragen", volumeMl: 100 },
-          { name: "Paracetamol Fresenius Kabi", volumeMl: null, isStarred: true },
-        ],
-      }),
-      makeFluidDayMock({
-        title: "Fluid balance for 04-14 06:00 – 04-15 05:59",
-        oralMl: 0,
-        medFluidMl: 1000,
-        totalOutMl: 300,
-        planned: [{ name: "Planned from medication", volumeMl: 100 }],
-      }),
-    ],
-    []
-  );
-
-  const [fluidDayIndex, setFluidDayIndex] = useState(0);
-  const [openFluidDetails, setOpenFluidDetails] = useState(false);
-
-  const goPrevFluidDay = () => setFluidDayIndex((i) => Math.max(0, i - 1));
-  const goNextFluidDay = () => setFluidDayIndex((i) => Math.min(fluidDays.length - 1, i + 1));
-  const goTodayFluidDay = () => setFluidDayIndex(0);
-
-  // Dialog state
+  const [openedOrder, setOpenedOrder] = useState<Order | null>(null);
   const [openOrderDialog, setOpenOrderDialog] = useState(false);
-  const [openClinicalDialog, setOpenClinicalDialog] = useState(false);
 
-  // Fluid register/edit dialog
-  const [openFluidDialog, setOpenFluidDialog] = useState(false);
-  const [editingFluid, setEditingFluid] = useState<FluidBalanceEntry | null>(null);
+  const [newOrder, setNewOrder] = useState<OrderForm>({
+    category: "Chemistry",
+    name: "",
+    date: new Date().toLocaleDateString(),
+  });
 
-  const [openClinicalLogDialog, setOpenClinicalLogDialog] = useState(false);
-  const [selectedClinicalName, setSelectedClinicalName] = useState<ClinicalParameterName>("NEWS2");
+  // ================== LABS ==================
+  const { data: labResultsRaw = [] } = useLabResults(patientId);
 
-  const [openClinicalUpdateDialog, setOpenClinicalUpdateDialog] = useState(false);
-  const [clinicalUpdateForm, setClinicalUpdateForm] = useState<ClinicalUpdateForm>({
+  // ================== REFERRALS ==================
+  const { data: referralsRaw = [] } = useReferrals(patientId);
+
+  const updateReferralMutation = useUpdateReferralStatus(patientId);
+  const createReferralMutation = useCreateReferral({
+    onSuccess: () => {
+      setOpenAddReferralDialog(false);
+    },
+  });
+
+  // const referrals = useMemo( () => referralsRaw.map(mapReferralToUi), [referralsRaw] );
+  const referrals = useMemo(() => {
+  console.log("=== RAW REFERRALS ===");
+  console.log(referralsRaw);
+
+  const mapped = referralsRaw.map(mapReferralToUi);
+
+  console.log("=== MAPPED REFERRALS ===");
+  console.log(mapped);
+
+  return mapped;
+}, [referralsRaw]);
+
+  const [referralFilterAnchor, setReferralFilterAnchor] = useState<HTMLElement | null>(null);
+  const [selectedReferralStatuses, setSelectedReferralStatuses] = useState< ReferralStatus[]>(["Unassessed", "Accepted", "In progress", "Completed"]);
+  const allReferralStatuses: ReferralStatus[] = [ "Unassessed", "Accepted","In progress", "Completed", ];
+
+  const [selectedReferral, setSelectedReferral] = useState<Referral | null>(null);
+  const [openAddReferralDialog, setOpenAddReferralDialog] = useState(false);
+
+  // ================== MEDICATION ==================
+  const { data: medications = [] } = useMedications(patientId);
+  const { data: vaccinations = [] } = useVaccinations(patientId);
+
+  // ================== CLINICAL ==================
+  const { data: clinicalEntries = [] } = useClinicalParameters(activeEncounter?.id);
+  const createClinicalMutation = useCreateClinicalEntry();
+
+ 
+  const clinicalLogs = useMemo( () => mapClinicalEntriesToLogs(clinicalEntries), [clinicalEntries],);
+  const clinicalParameters = useMemo( () => buildClinicalParameterRows(clinicalLogs),[clinicalLogs],); 
+
+  // ================== FLUID ==================
+  const { data: fluidRaw = [] } = useFluidBalance(patientId!);
+  const createFluidMutation = useCreateFluidBalance();
+
+
+// ================== UI STATE ==================
+const [resultSearch, setResultSearch] = useState("");
+
+const [openClinicalDialog, setOpenClinicalDialog] = useState(false);
+
+const [openFluidDialog, setOpenFluidDialog] = useState(false);
+const [editingFluid, setEditingFluid] = useState<FluidBalanceEntry | null>(null);
+
+const [openClinicalLogDialog, setOpenClinicalLogDialog] = useState(false);
+const [selectedClinicalName, setSelectedClinicalName] = useState<ClinicalParameterName>("NEWS2");
+
+const [openClinicalUpdateDialog, setOpenClinicalUpdateDialog] = useState(false);
+
+const [clinicalUpdateForm, setClinicalUpdateForm] =
+  useState<ClinicalUpdateForm>({
     dateTime: new Date().toLocaleString(),
     value: "",
     note: "",
   });
 
-  // Forms
-  const [newOrder, setNewOrder] = useState<OrderForm>({
-    category: "Chemistry",
-    name: "",
-    orderedBy: "",
-    date: new Date().toLocaleDateString(),
-  });
+const [fluidDayIndex, setFluidDayIndex] = useState(0);
+const [openFluidDetails, setOpenFluidDetails] = useState(false);
 
-  const [newClinicalForm, setNewClinicalForm] = useState<ClinicalRegisterForm>({
-    dateTime: new Date().toLocaleString(),
-    news2: "",
-    respiratoryRate: "",
-    oxygenSaturation: "",
-    hasOxygen: "no",
-    oxygenLiters: "",
-    systolicBP: "",
-    diastolicBP: "",
-    pulseRate: "",
-    temperature: "",
-    consciousness: "Alert",
-    note: "",
-  });
+// ================== DERIVED ==================
+const incoming = useMemo(
+  () => (referrals as Referral[]).filter((r) => r.toUnitId === user?.unitId),
+  [referrals, user?.unitId]
+);
 
-  // Handlers
-const handleSaveOrder = () => {
-  if (!newOrder.name.trim()) return;
+const outgoing = useMemo(
+  () => (referrals as Referral[]).filter((r) => r.fromUnitId === user?.unitId),
+  [referrals, user?.unitId]
+);
 
-  // EDIT MODE
-  if (editingOrderId) {
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === editingOrderId
-          ? {
-              ...o,
-              category: newOrder.category,
-              name: newOrder.name,
-              orderedBy: newOrder.orderedBy || o.orderedBy,
-              date: newOrder.date || o.date,
+const filteredReferrals = useMemo(
+  () =>
+    outgoing.filter((r) =>
+      selectedReferralStatuses.includes(r.status)
+    ),
+  [outgoing, selectedReferralStatuses]
+);
 
-              careContact: newOrder.careContact,
-              orderingUnit: newOrder.orderingUnit,
-              plannedDate: newOrder.plannedDate,
-              plannedTime: newOrder.plannedTime,
-              repeat: newOrder.repeat,
-              requester: newOrder.requester,
-              performer: newOrder.performer,
-              addition: newOrder.addition,
-              comment: newOrder.comment,
 
-              dateTime:
-                newOrder.plannedDate && newOrder.plannedTime
-                  ? `${newOrder.plannedDate} ${newOrder.plannedTime}`
-                  : o.dateTime,
-            }
-          : o
-      )
-    );
+const resultsForOrders = useMemo<OrderResult[]>(() => {
+  return (labResultsRaw as any[]).map((r) => ({
+    id: r.id,
+    orderId: r.orderId,
+    category: r.order?.category ?? "Other",
+    name: r.order?.name ?? "",
+    result: r.value,
+    date: r.resultDate,
+    flag: r.flag,
+    status: "final",
+    orderStatus: r.order?.status,
+  }));
+}, [labResultsRaw]);
 
-    // Update only PENDING result rows to match (safe + realistic)
-    setOrderResults((prev) =>
-      prev.map((r) =>
-        r.orderId === editingOrderId && r.status === "pending"
-          ? { ...r, category: newOrder.category, name: newOrder.name }
-          : r
-      )
-    );
+const fluidBalanceEntries = useMemo<FluidBalanceEntry[]>(() => {
+  return (fluidRaw as any[])
+    .sort(
+      (a, b) =>
+        new Date(b.measuredAt).getTime() - new Date(a.measuredAt).getTime(),
+    )
+    .map((e: any) => ({
+      id: e.id,
+      label: e.label,
+      period: e.period,
+      intakeMl: e.intakeMl,
+      outputMl: e.outputMl,
+      balance: `${e.balanceMl >= 0 ? "+" : ""}${e.balanceMl} ml`,
+      measuredAt: e.measuredAt,
+      details: e.details,
+    }));
+}, [fluidRaw]);
 
-    setEditingOrderId(null);
-    setOpenOrderDialog(false);
-    return;
-  }
 
-  // CREATE MODE
-  const orderId = `order-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-  const createdOrder: Order = {
-    id: orderId,
-    category: newOrder.category,
-    name: newOrder.name,
-    orderedBy: newOrder.orderedBy || "Unknown unit",
-    date: newOrder.date,
-
-    careContact: newOrder.careContact,
-    orderingUnit: newOrder.orderingUnit,
-    plannedDate: newOrder.plannedDate,
-    plannedTime: newOrder.plannedTime,
-    repeat: newOrder.repeat,
-    requester: newOrder.requester,
-    performer: newOrder.performer,
-    addition: newOrder.addition,
-    comment: newOrder.comment,
-
-    dateTime:
-      newOrder.plannedDate && newOrder.plannedTime
-        ? `${newOrder.plannedDate} ${newOrder.plannedTime}`
-        : undefined,
-  };
-
-  setOrders((prev) => [createdOrder, ...prev]);
-
-  setOrderResults((prev) => [
-    {
-      id: `res-${orderId}`,
-      orderId,
-      category: createdOrder.category,
-      name: createdOrder.name,
-      status: "pending",
-      result: "",
-      date: createdOrder.date,
-    },
-    ...prev,
-  ]);
-
-  setOpenOrderDialog(false);
+// ================== REFERRALS ==================
+const handleToggleReferralStatus = (status: ReferralStatus) => {
+  setSelectedReferralStatuses((prev) =>
+    prev.includes(status)
+      ? prev.filter((s) => s !== status)
+      : [...prev, status],
+  );
 };
 
-  const openEditOrder = (order: Order) => {
+const handleCreateReferral = (form: any) => {
+  if (!patient) return;
+
+  createReferralMutation.mutate({
+    clinicId: patient.clinicId,
+    patientId: patient.id,
+    encounterId: activeEncounter?.id,
+    toUnitId: form.toUnitId,
+    fromClinicId: form.fromClinicId,
+    fromUnitId: form.fromUnitId,
+    sentByStaffId: form.sentByStaffId,
+    urgent: form.urgent,
+    hasAdditionalInfo: form.hasAdditionalInfo,
+    details: form.details,
+  });
+};
+
+const handleUpdateReferralStatus = (id: string, status: ReferralStatus) => {
+  updateReferralMutation.mutate({
+    id,
+    status: mapUiStatusToBackend(status),
+  });
+};
+
+// ================== ORDERS ==================
+const openEditOrder = (order: Order) => {
   setEditingOrderId(order.id);
 
-  // Prefill the same form you use for new order
+  setNewOrder({
+    category: order.category ?? "",
+    name: order.name ?? "",
+    date: order.date ?? "",
+    plannedDate: order.plannedDate ?? "",
+    requester: order.requester ?? "",
+    careContact: order.careContact,
+    orderingUnit: order.orderingUnit,
+    plannedTime: order.plannedTime,
+    repeat: order.repeat ?? "Never",
+    performer: order.performer ?? "",
+    addition: order.addition ?? "",
+    comment: order.comment ?? "",
+  });
+
+  setOpenOrderDialog(true);
+};
+
+const handleOpenOrder = (order: Order) => {
+  setOpenedOrder(order);
+
   setNewOrder({
     category: order.category ?? "Chemistry",
     name: order.name ?? "",
-    orderedBy: order.orderedBy ?? "",
-    date: order.date ?? new Date().toLocaleDateString(),
-
-    careContact: order.careContact,
+    date: order.date ?? "",
     orderingUnit: order.orderingUnit,
     plannedDate: order.plannedDate,
     plannedTime: order.plannedTime,
@@ -341,113 +286,97 @@ const handleSaveOrder = () => {
   setOpenOrderDialog(true);
 };
 
-  const resultsForOrders = useMemo<OrderResult[]>(() => {
-  const byOrderId = new Map(orderResults.map((r) => [r.orderId, r]));
+// ================== CLINICAL ==================
 
-  return orders.map((o) => {
-    const existing = byOrderId.get(o.id);
-    if (existing) return existing;
+const handleOpenClinicalLog = (name: ClinicalParameterName) => {
+  setSelectedClinicalName(name);
+  setOpenClinicalLogDialog(true);
+};
 
-    return {
-      id: `pending-${o.id}`,
-      orderId: o.id,
-      category: o.category,
-      name: o.name,
-      status: "pending",
-      result: "",
-      date: o.date,
-    };
+const openUpdateDialogForName = (name: ClinicalParameterName) => {
+  setSelectedClinicalName(name);
+  const entry = latestEntry(clinicalLogs, name);
+
+  setClinicalUpdateForm({
+    dateTime: new Date().toLocaleString(),
+    value: entry?.value ?? "",
+    note: name === "SpO₂" ? entry?.note || "0 L" : entry?.note ?? "",
   });
-}, [orders, orderResults]);
 
-  const handleSaveClinical = () => {
-    const f = newClinicalForm;
+  setOpenClinicalUpdateDialog(true);
+};
 
-    const append = (name: ClinicalParameterName, value: string, note?: string) => {
-      if (!value.trim()) return;
+const openUpdateDialogForSelected = () =>
+  openUpdateDialogForName(selectedClinicalName);
 
-      setClinicalLogs((prev) => {
-        const list = prev[name] ?? [];
-        return {
-          ...prev,
-          [name]: [
-            ...list,
-            {
-              dateTime: f.dateTime,
-              value: value.trim(),
-              enteredBy: "Johan Svärd",
-              note: note?.trim() ? note.trim() : undefined,
-            },
-          ],
-        };
-      });
-    };
+const handleSaveClinicalUpdate = () => {
+  if (!activeEncounter) return;
 
-    append("NEWS2", f.news2);
-    append("Respiratory rate", f.respiratoryRate);
-    append("SpO₂", f.oxygenSaturation, f.hasOxygen === "yes" ? `${f.oxygenLiters || "?"} L` : "0 L");
+  const value = clinicalUpdateForm.value.trim();
+  if (!value) return;
 
-    if (f.systolicBP.trim() || f.diastolicBP.trim()) {
-      append("Blood pressure", `${f.systolicBP || "?"}/${f.diastolicBP || "?"}`);
-    }
-
-    append("Pulse", f.pulseRate);
-    append("Body temperature", f.temperature);
-    append("AVPU", f.consciousness);
-
-    setOpenClinicalDialog(false);
+  const mapNameToBackend: Record<ClinicalParameterName, string> = {
+    NEWS2: "NEWS2",
+    AVPU: "consciousness",
+    "Respiratory rate": "respiratory_rate",
+    "SpO₂": "spo2",
+    Pulse: "pulse",
+    "Blood pressure": "blood_pressure",
+    "Body temperature": "temperature",
   };
 
-  const handleOpenClinicalLog = (name: ClinicalParameterName) => {
-    setSelectedClinicalName(name);
-    setOpenClinicalLogDialog(true);
-  };
+  createClinicalMutation.mutate({
+    encounterId: activeEncounter.id,
+    name: mapNameToBackend[selectedClinicalName],
+    value,
+    note: clinicalUpdateForm.note,
+    recordedBy: "Current user",
+  });
 
-  const openUpdateDialogForName = (name: ClinicalParameterName) => {
-    setSelectedClinicalName(name);
-    const entry = latestEntry(clinicalLogs, name);
-    const defaultValue = entry?.value ?? "";
-    const defaultNote = entry?.note ?? "";
-    setClinicalUpdateForm({
-      dateTime: new Date().toLocaleString(),
-      value: defaultValue,
-      note: name === "SpO₂" ? defaultNote || "0 L" : defaultNote,
-    });
-    setOpenClinicalUpdateDialog(true);
-  };
+  setOpenClinicalUpdateDialog(false);
+};
 
-  const openUpdateDialogForSelected = () => openUpdateDialogForName(selectedClinicalName);
 
-  const handleSaveClinicalUpdate = () => {
-    const v = clinicalUpdateForm.value.trim();
-    if (!v) return;
+  // ================== FLUID ==================
 
-    setClinicalLogs((prev) => {
-      const list = prev[selectedClinicalName] ?? [];
-      const next: ClinicalLogEntry = {
-        dateTime: clinicalUpdateForm.dateTime,
-        value: v,
-        enteredBy: "Johan Svärd",
-        note: clinicalUpdateForm.note.trim() ? clinicalUpdateForm.note.trim() : undefined,
+// derived (belongs here, not global DERIVED)
+const fluidDays = useMemo(() => {
+  const grouped: Record<string, any[]> = {};
+
+  fluidBalanceEntries.forEach((e: any) => {
+    const day = new Date(e.measuredAt).toISOString().split("T")[0];
+
+    if (!grouped[day]) grouped[day] = [];
+    grouped[day].push(e);
+  });
+
+  return Object.entries(grouped)
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .map(([date, entries]) => {
+      const totalIn = entries.reduce((s, e) => s + e.intakeMl, 0);
+      const totalOut = entries.reduce((s, e) => s + e.outputMl, 0);
+
+      return {
+        date,
+        title: `Fluid balance for ${date}`,
+        totalIn,
+        totalOut,
+        balance: totalIn - totalOut,
+        entries,
       };
-      return { ...prev, [selectedClinicalName]: [...list, next] };
     });
+}, [fluidBalanceEntries]);
 
-    setOpenClinicalUpdateDialog(false);
-  };
+// navigation
+const goPrevFluidDay = () =>
+  setFluidDayIndex((i) => Math.min(i + 1, fluidDays.length - 1));
 
-  const handleCreateReferral = (newReferral: Referral) => {
-    setReferrals((prev) => [newReferral, ...prev]);
-  };
+const goNextFluidDay = () =>
+  setFluidDayIndex((i) => Math.max(i - 1, 0));
 
-  const handleUpdateReferralStatus = (id: string, status: ReferralStatus) => {
-    setReferrals((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
-  };
+const goTodayFluidDay = () => setFluidDayIndex(0);
 
-
-  // -----------------------------
-  // Fluid handlers (create/edit)
-  // -----------------------------
+// handlers
   const openCreateFluid = () => {
     setEditingFluid(null);
     setOpenFluidDialog(true);
@@ -459,15 +388,6 @@ const handleSaveOrder = () => {
     setOpenFluidDialog(true);
   };
 
-  const handleSaveFluidEntry = (entry: FluidBalanceEntry) => {
-    setFluidBalanceEntries((prev) => {
-      const exists = prev.some((x) => x?.id === entry.id);
-      return exists ? prev.map((x) => (x.id === entry.id ? entry : x)) : [entry, ...prev];
-    });
-    setOpenFluidDialog(false);
-    setEditingFluid(null);
-  };
-
   const closeFluidDialog = () => {
     setOpenFluidDialog(false);
     setEditingFluid(null);
@@ -477,23 +397,67 @@ const handleSaveOrder = () => {
   const defaultLabel = editingFluid?.label ?? "Today";
   const defaultPeriod = editingFluid?.period ?? "05:00–04:59";
 
+  if (!patientId) return <div className="p-6">Select a patient</div>;
+  if (isLoading) return <div className="p-6">Loading patient...</div>;
+  if (isError || !patient) return <div className="p-6">Patient not found</div>;
+  if (encounterLoading) return <div className="p-6">Loading encounter...</div>;
+
   return (
     <div className="space-y-4">
-      <PatientBanner patient={patient} onHomeCareClick={() => {}} />
+      {/* <EncounterHeader encounter={activeEncounter} /> */}
 
-      <InfoSourceSelector value={infoSource} onChange={setInfoSource} onUpdate={() => {}} />
+      <div className="flex items-start justify-between gap-3">
+        <PatientBanner patient={patient} onHomeCareClick={() => {}} />
+
+        <div className="flex shrink-0 gap-2">
+          <button
+            onClick={() => navigate(`/patients/${patientId}/journal`)}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+          >
+            Open Journal
+          </button>
+
+          <button
+            onClick={() => navigate(`/patients/${patientId}/consents`)}
+            className="rounded-lg bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-700"
+          >
+            Consent Management
+          </button>
+        </div>
+      </div>
+      <InfoSourceSelector
+        value={infoSource}
+        onChange={setInfoSource}
+        onUpdate={() => {}}
+      />
 
       {/* TOP ROW */}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1.2fr)_minmax(0,1.2fr)]">
-        <MedicationWidget />
+        {patientId && (
+          <MedicationWidget
+            medications={medications}
+            vaccinations={vaccinations}
+            patientId={patientId}
+            clinicId={patient.clinicId} 
+            encounterId={activeEncounter?.id} 
+          />
+        )}
 
         <OrdersWidget
           orders={orders}
+          encounterId={activeEncounter?.id!}
+          patientId={patientId!}
           onAddClick={() => {
-            setEditingOrderId(null); // ensure new mode
+            if (!activeEncounter) {
+              toast.error("Start an encounter before placing orders");
+              return;
+            }
+            setEditingOrderId(null);
+            setOpenedOrder(null);
             setOpenOrderDialog(true);
           }}
           onEditOrder={openEditOrder}
+          onOpenOrder={handleOpenOrder}
         />
 
         <ReferralsWidget
@@ -521,29 +485,39 @@ const handleSaveOrder = () => {
         <FluidBalanceWidget
           entries={fluidBalanceEntries}
           onAddClick={openCreateFluid}
+          onSelectIndex={(i) => setFluidDayIndex(i)}
           onOpenDetails={() => setOpenFluidDetails(true)}
-          onPrev={() => {
-            goPrevFluidDay();
-            setOpenFluidDetails(true);
-          }}
-          onNext={() => {
-            goNextFluidDay();
-            setOpenFluidDetails(true);
-          }}
         />
 
-        <ResultsWidget  results={resultsForOrders} search={resultSearch} onSearchChange={setResultSearch} />
+        <ResultsWidget
+          results={resultsForOrders}
+          search={resultSearch}
+          onSearchChange={setResultSearch}
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-1">
-        <CareOverviewWidget entries={MOCK_CARE_CONTACTS} />
+        <IncomingReferralsWidget
+          referrals={incoming}
+          onOpenReferral={setSelectedReferral}
+        />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-1">
+        {/* <CareOverviewWidget /> */}
       </div>
 
       {/* FLUID DETAILS (Cosmic-like) */}
       <FluidBalanceDetailsDialog
         open={openFluidDetails}
-        day={fluidDays[fluidDayIndex]}
-        entries={fluidBalanceEntries}
+        day={
+          fluidDays[fluidDayIndex] ?? {
+            title: "No data",
+            slots: [],
+            rows: [],
+            plannedMedicationFluids: [],
+          }
+        }
+        entries={fluidDays[fluidDayIndex]?.entries ?? []}
         onClose={() => setOpenFluidDetails(false)}
         onPrev={goPrevFluidDay}
         onNext={goNextFluidDay}
@@ -570,29 +544,88 @@ const handleSaveOrder = () => {
         onClose={() => setOpenClinicalUpdateDialog(false)}
         onSave={handleSaveClinicalUpdate}
       />
-
       <ClinicalRegisterDialog
         open={openClinicalDialog}
-        form={newClinicalForm}
-        setForm={setNewClinicalForm}
-        consciousnessOptions={CONSCIOUSNESS_OPTIONS}
         onClose={() => setOpenClinicalDialog(false)}
-        onRegister={handleSaveClinical}
+        onRegister={(form) => {
+          if (!activeEncounter) return;
+
+          const payloads = [
+            { name: "NEWS2", value: form.news2 },
+            { name: "respiratory_rate", value: form.respiratoryRate },
+            {
+              name: "spo2",
+              value: form.oxygenSaturation,
+              note: form.oxygenLiters,
+            },
+            { name: "pulse", value: form.pulseRate },
+            { name: "temperature", value: form.temperature },
+            {
+              name: "blood_pressure",
+              value: `${form.systolicBP}/${form.diastolicBP}`,
+            },
+            { name: "consciousness", value: form.consciousness },
+          ];
+
+          payloads.forEach((p) => {
+            if (!p.value) return;
+
+            createClinicalMutation.mutate({
+              encounterId: activeEncounter.id,
+              name: p.name,
+              value: p.value,
+              note: p.note,
+              recordedBy: "Current user",
+            });
+          });
+
+          setOpenClinicalDialog(false);
+        }}
+        consciousnessOptions={CONSCIOUSNESS_OPTIONS}
+        user={user}
       />
 
       <AddOrderDialog
         open={openOrderDialog}
-        form={newOrder}
-        setForm={setNewOrder}
+        mode={openedOrder ? "view" : editingOrderId ? "edit" : "create"}
+        encounter={activeEncounter}
+        editingOrder={openedOrder}
+
         onClose={() => {
           setOpenOrderDialog(false);
           setEditingOrderId(null);
+          setOpenedOrder(null);
         }}
-        onSave={handleSaveOrder}
-        mode={editingOrderId ? "edit" : "create"} // add this prop (next section)
+
+        onSave={(form) => {
+          if (!patient || !activeEncounter) return;
+
+          const payload = {
+            patientId: patient.id,
+            encounterId: activeEncounter.id,
+            category: mapUiCategoryToBackend(form.category),
+            code: form.name,
+            name: form.name,
+          };
+
+          if (editingOrderId) {
+            updateOrderMutation.mutate({
+              id: editingOrderId,
+              payload,
+            });
+          } else {
+            createOrderMutation.mutate(payload);
+          }
+
+          setOpenOrderDialog(false);
+        }}
       />
 
-      <ReferralDetailsDialog referral={selectedReferral} onClose={() => setSelectedReferral(null)} onUpdateStatus={handleUpdateReferralStatus} />
+      <ReferralDetailsDialog
+        referral={selectedReferral}
+        onClose={() => setSelectedReferral(null)}
+        onUpdateStatus={handleUpdateReferralStatus}
+      />
       <AddReferralDialog
         open={openAddReferralDialog}
         onClose={() => setOpenAddReferralDialog(false)}
@@ -606,7 +639,28 @@ const handleSaveOrder = () => {
         period={defaultPeriod}
         editing={editingFluid}
         onClose={closeFluidDialog}
-        onSave={handleSaveFluidEntry}
+        onSave={(data) => {
+          if (!patient || !activeEncounter) return;
+
+          createFluidMutation.mutate({
+            patientId: patient.id,
+            encounterId: activeEncounter.id,
+            measuredAt: new Date(data.measuredAt),
+
+            label: data.label,
+            period: data.period,
+
+            oralMl: data.oralMl,
+            enteralMl: data.enteralMl,
+
+            urineMl: data.urineMl,
+            bleedingMl: data.bleedingMl,
+            faecesMl: data.faecesMl,
+            vomitingMl: data.vomitingMl,
+          });
+
+          closeFluidDialog();
+        }}
       />
     </div>
   );

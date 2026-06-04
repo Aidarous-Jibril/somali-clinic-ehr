@@ -33,37 +33,46 @@ export type ReferralRole =
 
 export type Referral = {
   id: string;
+
   to: string;
   from: string;
+
   status: ReferralStatus;
   date: string;
 
   urgent?: boolean;
   hasAdditionalInfo?: boolean;
-  details: string;
+  details?: string;
 
-  // Sender metadata
-  sentByRole: ReferralRole;
-  sentByName: string;
+  sentByName?: string;
+  sentByRole?: string;
   sentByUnit?: string;
+
+  // 🔥 ADD THESE
+  toUnitId?: string;
+  fromUnitId?: string;
 };
+
 
 /* ========================================================
  * ORDERS (LAB / RADIOLOGY / TASKS)
  * ====================================================== */
+export type OrderStatus =| "ordered" | "in_progress" | "resulted" | "reviewed" | "completed" ;
 
 export type OrderRepeat = "Never" | "Daily" | "Weekly" | "Monthly";
 
-export type Order = {
+export type  Order = {
   id: string;
   category: string;      // e.g. Chemistry, Radiology
   name: string;          // e.g. B-EVF
-  orderedBy: string;     // unit or department
   date: string;          // YYYY-MM-DD or "Today"
   dateTime?: string;
 
+  orderedBy?: string;
   openLabel?: string;    // UI label override
-
+  orderedByStaffId?: string;
+  status?: OrderStatus; 
+  
   // Optional Cosmic-like metadata
   careContact?: string;
   orderingUnit?: string;
@@ -98,6 +107,7 @@ export type OrderResult = {
   date?: string;
   flag?: OrderResultFlag;
   status: OrderResultStatus;
+  orderStatus?: OrderStatus;
 };
 
 /* ========================================================
@@ -186,6 +196,20 @@ export type FluidBalanceEntry = {
   balance: string;
   period: string;
   details?: FluidBalanceDetails;
+};
+
+export type CreateFluidPayload = {
+  measuredAt: string;
+  label: string;
+  period: string;
+
+  oralMl: number;
+  enteralMl: number;
+
+  urineMl: number;
+  bleedingMl: number;
+  faecesMl: number;
+  vomitingMl: number;
 };
 
 /* ========================================================
@@ -286,14 +310,24 @@ export type MedicationSection = {
 export type VaccinationSection = MedicationSection;
 
 /* ========================================================
- * PATIENT BANNER
+ * ENCOUNTERS
  * ====================================================== */
 
-export type PatientBanner = {
+export type Encounter = {
   id: string;
-  name: string;
-  age: number;
-  unit: string;
+  clinicId: string;
+  patientId: string;
+
+  type: "outpatient" | "inpatient" | "emergency" | "telehealth";
+  status: "open" | "closed";
+
+  reason?: string;
+  notes?: string;
+
+  startedAt: string;
+  endedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 /* ========================================================
@@ -303,7 +337,6 @@ export type PatientBanner = {
 export type OrderForm = {
   category: string;
   name: string;
-  orderedBy: string;
   date: string;
 
   careContact?: string;

@@ -1,18 +1,37 @@
-// src/features/consent/types.ts
-
-export type ConsentStatus = "Active" | "Ended" | "Upcoming" | "Cancelled";
+export type ConsentStatus =
+  | "active"
+  | "ended"
+  | "upcoming"
+  | "cancelled";
 
 export type ConsentTypeKey = "shared_healthrecord";
 
-export interface ConsentRecord {
+export type ConsentRecord = {
   id: string;
+  clinicId: string;
+  patientId: string;
+
   type: ConsentTypeKey;
+  title: string;
+  organizationLine: string;
 
-  // Display text (Cosmic card header + org line)
-  title: string; // e.g. "Consent management"
-  organizationLine: string; // e.g. "REGION UTBILDNING, MEDICIN DIVISIONEN"
+  startDate: string;
+  endDate: string;
 
-  startDate: string; // yyyy-mm-dd
-  endDate: string;   // yyyy-mm-dd
   status: ConsentStatus;
-}
+  createdAt?: string;
+};
+
+export type CreateConsentPayload = {
+  clinicId: string;
+  patientId: string;
+  type: ConsentTypeKey;
+  title: string;
+  organizationLine: string;
+  startDate: string;
+  endDate: string;
+};
+
+export type UpdateConsentStatusPayload = {
+  status: ConsentStatus;
+};

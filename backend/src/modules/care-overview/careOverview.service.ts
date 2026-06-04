@@ -1,40 +1,32 @@
-import { prisma } from "../../config/prisma.js";
-import { CareContactEntry } from "./careOverview.types.js";
+import * as repo from "./careOverview.repository.js";
 
-const toDateKey = (d: Date) =>
-  d.toISOString().slice(0, 10); // YYYY-MM-DD
+const toDateKey = (date: Date) =>
+  date.toISOString().slice(0, 10);
 
-export const getCareOverviewForPatient = async (
-  patientId: string
-): Promise<CareContactEntry[]> => {
-  const encounters = await prisma.encounter.findMany({
-    where: { patientId },
-    include: {
-      clinic: true,
-    },
-    orderBy: { startedAt: "desc" },
-  });
+export const getCareOverviewForPatient = async ( patientId: string ) => {
+  const encounters = await repo.findPatientEncounters(patientId);
 
-  return encounters.map((e) => ({
-    id: e.id,
-    date: toDateKey(e.startedAt),
+  return encounters.map((encounter) => ({
+    id: encounter.id,
+
+    date: toDateKey(encounter.startedAt),
 
     category:
-      e.type === "inpatient"
+      encounter.type === "inpatient"
         ? "inpatient"
-        : e.type === "outpatient"
-        ? "outpatient"
         : "outpatient",
 
     visitType:
-      e.type === "inpatient"
+      encounter.type === "inpatient"
         ? "Inpatient care"
-        : e.type === "emergency"
+        : encounter.type === "emergency"
         ? "Emergency visit"
         : "Outpatient care",
 
-    unit: e.clinic.name,
-    responsible: "Assigned staff", // later: staff table
-    role: "Doctor", // later: role mapping
+    unit: encounter.clinic.name,
+
+    responsible: "Assigned staff",
+
+    role: "Doctor",
   }));
 };

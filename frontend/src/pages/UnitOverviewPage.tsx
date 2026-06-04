@@ -1,7 +1,24 @@
 // src/pages/UnitOverviewPage.tsx
+
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+
+import { admitPatient, endCareContact, savePlannedDischarge, } from "../api/inpatient.api";
+
+import { useAuth } from "../context/AuthContext";
+
+import { useActiveContacts } from "../hooks/inpatient/useActiveContacts";
+import { useChangeBed } from "../hooks/inpatient/useChangeBed";
+import { useCoordination } from "../hooks/inpatient/useCoordination";
+import { usePatientLog } from "../hooks/patient/usePatientLog";
+import { usePlanTransfer } from "../hooks/inpatient/usePlanTransfer";
+import { useReserveBed } from "../hooks/inpatient/useReserveBed";
+import { useSaveCoordination } from "../hooks/inpatient/useSaveCoordination";
+import { useTeams } from "../hooks/staff/useTeams";
+import { useTransferNow } from "../hooks/inpatient/useTransferNow";
+import { useTransfers } from "../hooks/inpatient/useTransfers";
+import { useUnits } from "../hooks/staff/useUnits";
 
 import { UnitOverviewHeader } from "../components/unit-overview/UnitOverviewHeader";
 import { UnitOverviewTabs } from "../components/unit-overview/UnitOverviewTabs";
@@ -16,729 +33,507 @@ import EwsDialog from "../features/unit-overview/dialogs/EwsDialog";
 import EwsLogDialog from "../features/unit-overview/dialogs/EwsLogDialog";
 import PatientCardDialog from "../features/unit-overview/dialogs/PatientCardDialog";
 import PatientLogDialog from "../features/unit-overview/dialogs/PatientLogDialog";
-import PlannedDischargeDialog, {
-  type PlannedDischargeData,
-} from "../features/unit-overview/dialogs/PlannedDischargeDialog";
+import PlannedDischargeDialog from "../features/unit-overview/dialogs/PlannedDischargeDialog";
 import ReserveBedDialog from "../features/unit-overview/dialogs/ReserveBedDialog";
 import TransferPatientDialog from "../features/unit-overview/dialogs/TransferPatientDialog";
 
+import { allBeds, bedOptions } from "../features/unit-overview/unitOverviewMockData";
 
+import type { UnitOverviewTabKey } from "../features/unit-overview/unitOverviewConstants";
 import type {
   AdmitPatientData,
   BedChangeOption,
   BedOption,
   BedSelectOption,
   CoordinationData,
-  EwsEntry,
   Inpatient,
-  PlannedDischarge,
-  PlannedDischargeStatus,
   Transfer,
-  TransferPatientData,
-  TransferStatus,
 } from "../features/unit-overview/types";
-import {
-  allBeds,
-  bedOptions,
-  facilityOptions,
-  sampleCoordinationCases,
-  sampleInpatients,
-  samplePatientLogs,
-  sampleTransfers,
-  unitOptions,
-  unitsByFacility,
-} from "../features/unit-overview/mockData";
 
+// ------------------------------------------------------
+// Local types
+// ------------------------------------------------------
 
-import type { EwsMeasurementData } from "../features/unit-overview/dialogs/EwsDialog";
-import type { UnitOverviewTabKey } from "../features/unit-overview/constants";
+type MenuPosition = { x: number; y: number };
 
-function makeId(prefix = "t") {
-  return `${prefix}-${Math.random().toString(16).slice(2)}-${Date.now()}`;
-}
+type DialogKey =
+  | "admit"
+  | "card"
+  | "log"
+  | "discharge"
+  | "reserveBed"
+  | "transfer"
+  | "planTransfer"
+  | "ews"
+  | "ewsLog"
+  | "changeBed"
+  | "coordination";
 
-const UnitOverviewPage = () => {
+const INITIAL_DIALOGS: Record<DialogKey, boolean> = {
+  admit: false,
+  card: false,
+  log: false,
+  discharge: false,
+  reserveBed: false,
+  transfer: false,
+  planTransfer: false,
+  ews: false,
+  ewsLog: false,
+  changeBed: false,
+  coordination: false,
+};
+
+// ------------------------------------------------------
+// Page
+// ------------------------------------------------------
+
+export default function UnitOverviewPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
-  // --------------------------------------------------
-  // State: core lists + tabs
-  // --------------------------------------------------
-
+  // UI state
   const [tab, setTab] = useState<UnitOverviewTabKey>("active");
-  const [inpatients, setInpatients] = useState<Inpatient[]>(sampleInpatients);
-  const [transfers, setTransfers] = useState<Transfer[]>(sampleTransfers);
-
-  // --------------------------------------------------
-  // State: selection + context menu
-  // --------------------------------------------------
-  const [contextMenu, setContextMenu] = useState<{ mouseX: number; mouseY: number } | null>(null);
-  const [selectedInpatient, setSelectedInpatient] = useState<Inpatient | null>(null);
-
-  // --------------------------------------------------
-  // State: UI toggles
-  // --------------------------------------------------
   const [showEmptyBeds, setShowEmptyBeds] = useState(true);
+  const [selectedPatient, setSelectedPatient] = useState<Inpatient | null>(null);
+  const [menu, setMenu] = useState<MenuPosition | null>(null);
+  const [dialogs, setDialogs] = useState(INITIAL_DIALOGS);
+  const [selectedWard, setSelectedWard] = useState("");
 
-  // --------------------------------------------------
-  // State: read-only patient log (mock)
-  // --------------------------------------------------
-  const [patientLogs] = useState(samplePatientLogs);
+  // Data
+  const { data: realUnits = [] } = useUnits(user?.clinicId);
+  const selectedUnit = realUnits.find((u: any) => u.name === selectedWard);
 
-  // --------------------------------------------------
-  // State: dialog open/close flags
-  // --------------------------------------------------
-  const [openPatientCard, setOpenPatientCard] = useState(false);
-  const [openPatientLogDialog, setOpenPatientLogDialog] = useState(false);
-  const [openDischargeDialog, setOpenDischargeDialog] = useState(false);
-  const [openAdmissionDialog, setOpenAdmissionDialog] = useState(false);
-  const [openBedDialog, setOpenBedDialog] = useState(false);
-  const [openTransferDialog, setOpenTransferDialog] = useState(false);
-  const [openPlanTransferDialog, setOpenPlanTransferDialog] = useState(false);
-  const [openEwsDialog, setOpenEwsDialog] = useState(false);
-  const [openEwsLogDialog, setOpenEwsLogDialog] = useState(false);
-  const [openBedChangeDialog, setOpenBedChangeDialog] = useState(false);
-  const [openCoordinationDialog, setOpenCoordinationDialog] = useState(false);
+  const { data: inpatients = [], isLoading, refetch } = useActiveContacts();
+  const { data: transfers = [] } = useTransfers(user?.clinicId, user?.unitId);
+  const { data: teams = [] } = useTeams(user?.clinicId, selectedUnit?.id);
 
-  // --------------------------------------------------
-  // State: transfer selection
-  // --------------------------------------------------
-  const [selectedTransferForBed, setSelectedTransferForBed] = useState<Transfer | null>(null);
-  const [selectedTransferForAction, setSelectedTransferForAction] = useState<Transfer | null>(null);
-  const [outboundTransferDraft, setOutboundTransferDraft] = useState<Transfer | null>(null);
+  const { data: patientEntries = [], isLoading: logLoading } = usePatientLog(
+    selectedPatient?.id,
+    dialogs.log
+  );
 
-  // --------------------------------------------------
-  // State: EWS logs
-  // --------------------------------------------------
-  const [ewsLogs, setEwsLogs] = useState<Record<string, EwsEntry[]>>({});
+  const { data: coordinationData, isLoading: coordinationLoading } =
+    useCoordination(selectedPatient?.id, dialogs.coordination);
 
-  // --------------------------------------------------
-  // State: Coordination (cases per patient)
-  // --------------------------------------------------
-  const [coordinationCases, setCoordinationCases] = useState<Record<string, CoordinationData>>(() => sampleCoordinationCases);
-  const [coordinationTargetId, setCoordinationTargetId] = useState<string | null>(null);
+  // Mutations
+  const changeBedMutation = useChangeBed();
+  const saveCoordinationMutation = useSaveCoordination();
+  const planTransferMutation = usePlanTransfer();
+  const reserveBedMutation = useReserveBed();
+  const transferNowMutation = useTransferNow();
 
-  // --------------------------------------------------
-  // Derived data (useMemo)
-  // --------------------------------------------------
+  // ------------------------------------------------------
+  // Helpers
+  // ------------------------------------------------------
 
-  // Admission bed dropdown options (disable occupied beds)
-  const admissionBedOptions: BedSelectOption[] = useMemo(() => {
-    const occupied = new Set(inpatients.map((p) => p.bed));
-    return allBeds.map((b) => ({
-      id: b,
-      label: b,
-      disabled: occupied.has(b),
-    }));
-  }, [inpatients]);
+  const open = (key: DialogKey) => {
+    setDialogs((prev) => ({ ...prev, [key]: true }));
+    setMenu(null);
+  };
 
-  // Reserve-bed dialog options (from mock bedOptions)
-  const reserveBedOptions: BedOption[] = useMemo(() => {
-    return bedOptions.map((b) => ({
-      id: b.code,
-      label: b.code,
-      status: b.status === "Available" ? "free" : b.status === "Reserved" ? "reserved" : "occupied",
-    }));
-  }, []);
+  const close = (key: DialogKey) =>
+    setDialogs((prev) => ({ ...prev, [key]: false }));
 
-  // Change-bed dialog options (occupied/free based on current inpatients)
-  const changeBedOptions: BedChangeOption[] = useMemo(() => {
-    return allBeds.map((bedCode) => {
-      const occupant = inpatients.find((p) => p.bed === bedCode);
-      const isCurrent = selectedInpatient && selectedInpatient.bed === bedCode;
-      const isOccupied = !!occupant && !isCurrent;
-      return { id: bedCode, label: bedCode, status: isOccupied ? "occupied" : "free" };
-    });
-  }, [inpatients, selectedInpatient]);
+  const patientRoute = (patient: Inpatient) => patient.patientId || patient.id;
 
-  // --------------------------------------------------
-  // Effects
-  // --------------------------------------------------
+  const goToPatient = (patient: Inpatient) => {
+    const id = patientRoute(patient);
+    if (!id) return toast.error("Patient id missing");
 
-  // Close context menu on click anywhere
+    navigate(`/patients/${encodeURIComponent(id)}`);
+    setMenu(null);
+  };
+
+  // Close context menu on outside click
   useEffect(() => {
-    if (!contextMenu) return;
-    const handleClick = () => setContextMenu(null);
-    window.addEventListener("click", handleClick);
-    return () => window.removeEventListener("click", handleClick);
-  }, [contextMenu]);
+    if (!menu) return;
 
-  // --------------------------------------------------
-  // Handlers: context menu
-  // --------------------------------------------------
-  const handleRowContextMenu = (e: React.MouseEvent<HTMLTableRowElement>, patient: Inpatient) => {
+    const closeMenu = () => setMenu(null);
+
+    window.addEventListener("click", closeMenu);
+    return () => window.removeEventListener("click", closeMenu);
+  }, [menu]);
+
+  // ------------------------------------------------------
+  // Derived data
+  // ------------------------------------------------------
+
+  const occupiedBeds = useMemo(
+    () => new Set(inpatients.map((p) => p.bed)),
+    [inpatients]
+  );
+
+  const admissionBeds: BedSelectOption[] = useMemo(
+    () =>
+      allBeds.map((bed) => ({
+        id: bed,
+        label: bed,
+        disabled: occupiedBeds.has(bed),
+      })),
+    [occupiedBeds]
+  );
+
+  const reserveBeds: BedOption[] = useMemo(
+    () =>
+      bedOptions.map((bed) => ({
+        id: bed.code,
+        label: bed.code,
+        status:
+          bed.status === "Available"
+            ? "free"
+            : bed.status === "Reserved"
+            ? "reserved"
+            : "occupied",
+      })),
+    []
+  );
+
+  const changeBeds: BedChangeOption[] = useMemo(
+    () =>
+      allBeds.map((bed) => ({
+        id: bed,
+        label: bed,
+        status: inpatients.some(
+          (p) => p.bed === bed && selectedPatient?.bed !== bed
+        )
+          ? "occupied"
+          : "free",
+      })),
+    [inpatients, selectedPatient]
+  );
+
+  // ------------------------------------------------------
+  // Actions
+  // ------------------------------------------------------
+
+  const openContextMenu = (
+    e: React.MouseEvent<HTMLTableRowElement>,
+    patient: Inpatient
+  ) => {
     e.preventDefault();
-    setSelectedInpatient(patient);
-    setContextMenu(contextMenu === null ? { mouseX: e.clientX + 2, mouseY: e.clientY - 6 } : null);
+    setSelectedPatient(patient);
+    setMenu({ x: e.clientX + 2, y: e.clientY - 6 });
   };
 
-  // --------------------------------------------------
-  // Handlers: navigation
-  // --------------------------------------------------
-  const openPatientOverview = () => {
-    if (!selectedInpatient) return;
-    const idParam = encodeURIComponent(selectedInpatient.nationalId);
-    navigate(`/patients/${idParam}`);
-  };
+  const saveDischarge = async (data: {
+    date: string;
+    time: string;
+    status: string;
+  }) => {
+    if (!selectedPatient?.id) return;
 
-  const openJournal = () => navigate("/journal");
+    try {
+      await savePlannedDischarge({
+        stayId: selectedPatient.id,
+        ...data,
+      });
 
-  // --------------------------------------------------
-  // Handlers: admission
-  // --------------------------------------------------
-  const handleOpenAdmission = () => setOpenAdmissionDialog(true);
-
-  const handleSaveAdmission = (data: AdmitPatientData) => {
-    if (!data.nationalId.trim() || !data.name.trim() || !data.bed.trim()) {
-      toast.error("National ID, name and bed must be filled in.");
-      return;
+      await refetch();
+      toast.success("Planned discharge saved");
+      close("discharge");
+    } catch {
+      toast.error("Failed to save planned discharge");
     }
+  };
 
-    // Prevent admitting into an already occupied bed
-    const bedTaken = inpatients.some((p) => p.bed === data.bed);
-    if (bedTaken) {
-      toast.error(`Bed ${data.bed} is already occupied.`);
-      return;
+  const handleChangeBed = async (bedId: string | null) => {
+    if (!selectedPatient?.id || !bedId) return;
+
+    try {
+      await changeBedMutation.mutateAsync({
+        stayId: selectedPatient.id,
+        bedCode: bedId,
+      });
+
+      toast.success("Bed changed");
+      close("changeBed");
+    } catch {
+      toast.error("Failed to change bed");
     }
-
-    const newInpatient: Inpatient = {
-      bed: data.bed,
-      nationalId: data.nationalId,
-      name: data.name,
-      ews: data.ews ? Number(data.ews) : undefined,
-      facility: "Somali Clinic - Hargeisa",
-      ward: data.ward,
-      team: data.team,
-      startDate: `${data.startDate} ${data.startTime}`,
-      activity: "",
-      absence: "",
-    };
-
-    setInpatients((prev) => [...prev, newInpatient]);
-    toast.success("Patient admitted to the unit.");
-    setOpenAdmissionDialog(false);
   };
 
-  // --------------------------------------------------
-  // Handlers: planned discharge
-  // --------------------------------------------------
-  const openDischarge = () => {
-    if (!selectedInpatient) return;
-    setOpenDischargeDialog(true);
+  const handleSaveCoordination = async (data: CoordinationData) => {
+    if (!selectedPatient?.id) return;
+
+    try {
+      await saveCoordinationMutation.mutateAsync({
+        stayId: selectedPatient.id,
+        ...data,
+      });
+
+      toast.success("Coordination saved");
+      close("coordination");
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Failed to save coordination"
+      );
+    }
   };
 
-  const handleSavePlannedDischarge = (data: PlannedDischargeData) => {
-    if (!selectedInpatient) return;
+  const handlePlanTransfer = async (data: any) => {
+    if (!selectedPatient || !user) return;
 
-    const updated: PlannedDischarge = {
-      dateTime: `${data.date} ${data.time}`,
-      status: data.status as PlannedDischargeStatus,
-    };
+    try {
+      await planTransferMutation.mutateAsync({
+        stayId: selectedPatient.id,
+        staffId: user.id,
+        clinicId: user.clinicId,
+        ...data,
+      });
 
-    setInpatients((prev) =>
-      prev.map((p) =>
-        p.bed === selectedInpatient.bed && p.nationalId === selectedInpatient.nationalId ? { ...p, plannedDischarge: updated } : p
-      )
+      toast.success("Transfer planned");
+      close("planTransfer");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to plan transfer");
+    }
+  };
+
+  const handleReserveBed = async (transfer: Transfer) => {
+    if (!selectedPatient?.bed) return;
+
+    try {
+      await reserveBedMutation.mutateAsync({
+        referralId: transfer.id,
+        bedCode: selectedPatient.bed,
+      });
+
+      toast.success("Bed reserved");
+    } catch {
+      toast.error("Failed to reserve bed");
+    }
+  };
+
+  const handleTransferNow = async (transfer: Transfer) => {
+    try {
+      await transferNowMutation.mutateAsync({
+        referralId: transfer.id,
+      });
+
+      toast.success("Patient transferred");
+      refetch();
+    } catch {
+      toast.error("Transfer failed");
+    }
+  };
+
+  const handleEndCareContact = async () => {
+    if (!selectedPatient?.id) return;
+
+    const confirmed = window.confirm(
+      `End care contact for ${selectedPatient.name}?`
     );
 
-    setSelectedInpatient((prev) => (prev ? { ...prev, plannedDischarge: updated } : prev));
+    if (!confirmed) return;
 
-    toast.success("Planned discharge updated.");
-    setOpenDischargeDialog(false);
+    try {
+      await endCareContact(selectedPatient.id);
+      toast.success("Care contact ended");
+      setMenu(null);
+      refetch();
+    } catch {
+      toast.error("Failed to end care contact");
+    }
   };
 
-  // --------------------------------------------------
-  // Handlers: EWS
-  // --------------------------------------------------
-  const handleOpenNewEws = () => {
-    if (!selectedInpatient) return;
-    setOpenEwsDialog(true);
-    setContextMenu(null);
-  };
-
-  const handleOpenEwsLog = () => {
-    if (!selectedInpatient) return;
-    setOpenEwsLogDialog(true);
-    setContextMenu(null);
-  };
-
-  const handleSaveNewEws = (data: EwsMeasurementData) => {
-    if (!selectedInpatient) return;
-
-    const scoreNum = Number(data.score);
-    if (Number.isNaN(scoreNum)) {
-      toast.error("NEWS / EWS score must be a number.");
+  const handleAdmitPatient = async (form: AdmitPatientData) => {
+    if (!user?.clinicId) {
+      toast.error("Clinic missing");
       return;
     }
 
-    const key = selectedInpatient.nationalId;
+    try {
+      await admitPatient({
+        ...form,
+        clinicId: user.clinicId,
+      });
 
-    setInpatients((prev) =>
-      prev.map((p) =>
-        p.bed === selectedInpatient.bed && p.nationalId === selectedInpatient.nationalId ? { ...p, ews: scoreNum } : p
-      )
-    );
-
-    setEwsLogs((prev) => {
-      const list = prev[key] || [];
-      return { ...prev, [key]: [...list, { dateTime: data.dateTime, score: scoreNum }] };
-    });
-
-    toast.success("New EWS / NEWS registered.");
-    setOpenEwsDialog(false);
-  };
-
-  // --------------------------------------------------
-  // Handlers: patient log
-  // --------------------------------------------------
-  const openPatientLog = () => {
-    if (!selectedInpatient) return;
-    setOpenPatientLogDialog(true);
-    setContextMenu(null);
-  };
-
-  // --------------------------------------------------
-  // Handlers: inbound transfers (reserve bed + transfer now)
-  // --------------------------------------------------
-  const handleOpenBedReservation = (transfer: Transfer) => {
-    setSelectedTransferForBed(transfer);
-    setOpenBedDialog(true);
-  };
-
-  const handleReserveBed = (bedId: string | null) => {
-    if (!selectedTransferForBed) {
-      setOpenBedDialog(false);
-      return;
+      toast.success("Patient admitted");
+      close("admit");
+      refetch();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to admit patient");
     }
-    if (!bedId) {
-      toast.error("Please select a bed to reserve.");
-      return;
-    }
-
-    setTransfers((prev) => prev.map((t) => (t.id === selectedTransferForBed.id ? { ...t, bedReserved: bedId } : t)));
-
-    toast.success(`Bed ${bedId} reserved for transfer.`);
-    setOpenBedDialog(false);
-    setSelectedTransferForBed(null);
   };
 
-  const handleOpenTransferDialog = (transfer: Transfer) => {
-    if (!transfer.bedReserved) {
-      toast.error("Please reserve a bed before transferring the patient.");
-      return;
-    }
-    setSelectedTransferForAction(transfer);
-    setOpenTransferDialog(true);
-  };
+  // ------------------------------------------------------
+  // Menu
+  // ------------------------------------------------------
 
-  const handleTransferPatientInbound = (data: TransferPatientData) => {
-    if (!selectedTransferForAction || !selectedTransferForAction.bedReserved) {
-      toast.error("Bed must be reserved before transfer.");
-      return;
-    }
+  const menuItems: [string, () => void][] = [
+    ["New EWS...", () => open("ews")],
+    ["EWS log...", () => open("ewsLog")],
+    ["Patient card...", () => open("card")],
+    ["Admission & discharge...", () => open("discharge")],
+    ["Place / bed...", () => open("changeBed")],
+    ["Patient log...", () => open("log")],
+    ["Coordination...", () => open("coordination")],
+    [
+      "Journal...",
+      () =>
+        selectedPatient &&
+        navigate(`/patients/${patientRoute(selectedPatient)}/journal`),
+    ],
+    ["Plan transfer...", () => open("planTransfer")],
+    [
+      "Patient overview...",
+      () => selectedPatient && goToPatient(selectedPatient),
+    ],
+  ];
 
-    const updatedTransferTime = `${data.transferDate} ${data.transferTime}`;
-
-    const newInpatient: Inpatient = {
-      bed: selectedTransferForAction.bedReserved,
-      nationalId: selectedTransferForAction.nationalId,
-      name: selectedTransferForAction.name,
-      facility: data.toFacility || "Somali Clinic - Hargeisa",
-      ward: data.toUnit,
-      team: "Blue team",
-      startDate: updatedTransferTime,
-      ews: undefined,
-      activity: "",
-      absence: "",
-    };
-
-    setInpatients((prev) => [...prev, newInpatient]);
-
-    setTransfers((prev) =>
-      prev.map((t) =>
-        t.id === selectedTransferForAction.id
-          ? {
-              ...t,
-              fromFacility: data.fromFacility,
-              toFacility: data.toFacility,
-              fromUnit: data.fromUnit,
-              toUnit: data.toUnit,
-              transferTime: updatedTransferTime,
-              status: "completedToday" as TransferStatus,
-            }
-          : t
-      )
-    );
-
-    toast.success("Patient transferred and admitted to the unit.");
-    setOpenTransferDialog(false);
-    setSelectedTransferForAction(null);
-  };
-
-  // --------------------------------------------------
-  // Handlers: bed change
-  // --------------------------------------------------
-  const openBedChange = () => {
-    if (!selectedInpatient) return;
-    setOpenBedChangeDialog(true);
-    setContextMenu(null);
-  };
-
-  const handleChangeBed = (bedId: string | null) => {
-    if (!selectedInpatient || !bedId) {
-      setOpenBedChangeDialog(false);
-      return;
-    }
-
-    setInpatients((prev) => prev.map((p) => (p.nationalId === selectedInpatient.nationalId ? { ...p, bed: bedId } : p)));
-
-    toast.success(`Bed changed to ${bedId}`);
-    setOpenBedChangeDialog(false);
-  };
-
-  // --------------------------------------------------
-  // Handlers: outbound transfers (plan transfer)
-  // --------------------------------------------------
-  const openPlanTransfer = () => {
-    if (!selectedInpatient) return;
-
-    const now = new Date();
-    const d = now.toISOString().slice(0, 10);
-    const hh = `${now.getHours()}`.padStart(2, "0");
-    const mm = `${now.getMinutes()}`.padStart(2, "0");
-
-    const draft: Transfer = {
-      id: makeId("out"),
-      direction: "outbound",
-      type: "Outbound transfer",
-      name: selectedInpatient.name,
-      nationalId: selectedInpatient.nationalId,
-
-      fromFacility: selectedInpatient.facility,
-      toFacility: "Hargeisa General Hospital",
-
-      fromUnit: selectedInpatient.ward,
-      toUnit: "Emergency dept",
-
-      transferTime: `${d} ${hh}:${mm}`,
-      status: "planned",
-
-      technicalUnit: "",
-      specialBedNeeds: "",
-      reason: "",
-      transferDecided: false,
-      patientReady: false,
-    };
-
-    setOutboundTransferDraft(draft);
-    setOpenPlanTransferDialog(true);
-    setContextMenu(null);
-  };
-
-  const handleSaveOutboundTransfer = (data: TransferPatientData) => {
-    if (!selectedInpatient || !outboundTransferDraft) return;
-
-    if (!data.toFacility.trim()) {
-      toast.error("Transfer to facility is required.");
-      return;
-    }
-    if (!data.toUnit.trim()) {
-      toast.error("Transfer to unit is required.");
-      return;
-    }
-
-    const transferTime = `${data.transferDate} ${data.transferTime}`;
-
-    const newTransfer: Transfer = {
-      id: makeId("out"),
-      direction: "outbound",
-      type: "Outbound transfer",
-      name: selectedInpatient.name,
-      nationalId: selectedInpatient.nationalId,
-
-      fromFacility: data.fromFacility,
-      toFacility: data.toFacility,
-      fromUnit: data.fromUnit,
-      toUnit: data.toUnit,
-
-      transferTime,
-      technicalUnit: data.technicalUnit,
-      specialBedNeeds: data.specialBedNeeds,
-      reason: data.reason,
-      transferDecided: data.transferDecided,
-      patientReady: data.patientReady,
-
-      status: data.transferDecided && data.patientReady ? "completedToday" : "planned",
-    };
-
-    setTransfers((prev) => [newTransfer, ...prev]);
-
-    if (newTransfer.status === "completedToday") {
-      setInpatients((prev) => prev.filter((p) => p.nationalId !== selectedInpatient.nationalId));
-      toast.success("Outbound transfer completed. Patient removed from active contacts.");
-    } else {
-      toast.success("Outbound transfer planned and saved.");
-    }
-
-    setOpenPlanTransferDialog(false);
-    setOutboundTransferDraft(null);
-  };
-
-  // --------------------------------------------------
-  // Handlers: coordination
-  // --------------------------------------------------
-  const openCoordination = () => {
-    if (!selectedInpatient) return;
-    setCoordinationTargetId(selectedInpatient.nationalId);
-    setOpenCoordinationDialog(true);
-    setContextMenu(null);
-  };
-
-  const openCoordinationForPatient = (patient: Inpatient) => {
-    setSelectedInpatient(patient);
-    setCoordinationTargetId(patient.nationalId);
-    setOpenCoordinationDialog(true);
-  };
-
-  const handleSaveCoordination = (data: CoordinationData) => {
-    const id = coordinationTargetId ?? selectedInpatient?.nationalId;
-    if (!id) return;
-
-    setCoordinationCases((prev) => ({ ...prev, [id]: data }));
-
-    setInpatients((prev) => prev.map((p) => (p.nationalId === id ? { ...p, coordination: { hasCase: true } } : p)));
-
-    setSelectedInpatient((prev) =>
-      prev && prev.nationalId === id ? { ...prev, coordination: { hasCase: true } } : prev
-    );
-
-    toast.success("Coordination saved.");
-    setOpenCoordinationDialog(false);
-    setCoordinationTargetId(null);
-  };
-
-  // --------------------------------------------------
+  // ------------------------------------------------------
   // Render
-  // --------------------------------------------------
+  // ------------------------------------------------------
+
   return (
     <div className="space-y-4 text-sm">
-      <UnitOverviewHeader onAdmitClick={handleOpenAdmission} />
+      <UnitOverviewHeader onAdmitClick={() => open("admit")} />
 
       <UnitOverviewTabs value={tab} onChange={setTab} />
 
-      <UnitOverviewFilters showEmptyBeds={showEmptyBeds} onToggleEmptyBeds={setShowEmptyBeds} />
+      <UnitOverviewFilters
+        showEmptyBeds={showEmptyBeds}
+        onToggleEmptyBeds={setShowEmptyBeds}
+      />
 
-      {tab === "active" && (
+      {isLoading ? (
+        <div className="rounded border bg-white p-6 text-center text-gray-500">
+          Loading active contacts...
+        </div>
+      ) : tab === "active" ? (
         <ActiveContactsTable
           inpatients={inpatients}
           allBeds={allBeds}
           showEmptyBeds={showEmptyBeds}
-          onRowClick={(p) => navigate(`/patients/${encodeURIComponent(p.nationalId)}`)}
-          onRowContextMenu={handleRowContextMenu}
-          onOpenCoordination={openCoordinationForPatient}
+          onRowClick={goToPatient}
+          onRowContextMenu={openContextMenu}
+          onOpenCoordination={(patient) => {
+            setSelectedPatient(patient);
+            open("coordination");
+          }}
         />
-      )}
-
-      {tab === "transfers" && (
+      ) : (
         <TransfersTable
           transfers={transfers}
-          onReserveBedClick={handleOpenBedReservation}
-          onTransferNowClick={handleOpenTransferDialog}
+          onReserveBedClick={handleReserveBed}
+          onTransferNowClick={handleTransferNow}
         />
       )}
 
-      {/* Context menu */}
-      {contextMenu && selectedInpatient && (
+      {menu && selectedPatient && (
         <div
-          className="fixed z-50 w-56 rounded border border-gray-300 bg-white text-xs shadow-md"
-          style={{ top: contextMenu.mouseY, left: contextMenu.mouseX }}
+          className="fixed z-50 w-64 rounded border border-gray-300 bg-white shadow-xl"
+          style={{ top: menu.y, left: menu.x }}
           onClick={(e) => e.stopPropagation()}
         >
-          <button className="block w-full px-3 py-1.5 text-left hover:bg-blue-50" onClick={handleOpenNewEws}>
-            New EWS…
-          </button>
-          <button className="block w-full px-3 py-1.5 text-left hover:bg-blue-50" onClick={handleOpenEwsLog}>
-            EWS log…
-          </button>
+          {menuItems.map(([label, action]) => (
+            <button
+              key={label}
+              onClick={action}
+              className="block w-full px-4 py-2 text-left hover:bg-gray-100"
+            >
+              {label}
+            </button>
+          ))}
 
-          <div className="my-1 border-t border-gray-200" />
-
-          <button
-            className="block w-full px-3 py-1.5 text-left hover:bg-blue-50"
-            onClick={() => {
-              setOpenPatientCard(true);
-              setContextMenu(null);
-            }}
-          >
-            Patient card…
-          </button>
+          <div className="border-t" />
 
           <button
-            className="block w-full px-3 py-1.5 text-left hover:bg-blue-50"
-            onClick={() => {
-              openDischarge();
-              setContextMenu(null);
-            }}
+            onClick={handleEndCareContact}
+            className="block w-full px-4 py-2 text-left text-red-600 hover:bg-red-50"
           >
-            Admission &amp; discharge…
-          </button>
-
-          <button className="block w-full px-3 py-1.5 text-left hover:bg-blue-50" onClick={openBedChange}>
-            Place / bed…
-          </button>
-
-          <button className="block w-full px-3 py-1.5 text-left hover:bg-blue-50" onClick={openPatientLog}>
-            Patient log…
-          </button>
-
-          <button className="block w-full px-3 py-1.5 text-left hover:bg-blue-50" onClick={openCoordination}>
-            Coordination (Samordning)…
-          </button>
-
-          <button
-            className="block w-full px-3 py-1.5 text-left hover:bg-blue-50"
-            onClick={() => {
-              openJournal();
-              setContextMenu(null);
-            }}
-          >
-            Journal…
-          </button>
-
-          <button className="block w-full px-3 py-1.5 text-left hover:bg-blue-50" onClick={openPlanTransfer}>
-            Plan transfer…
-          </button>
-
-          <button
-            className="block w-full px-3 py-1.5 text-left hover:bg-blue-50"
-            onClick={() => {
-              openPatientOverview();
-              setContextMenu(null);
-            }}
-          >
-            Patient overview…
-          </button>
-
-          <button
-            className="block w-full border-t border-gray-200 px-3 py-1.5 text-left text-red-700 hover:bg-red-50"
-            onClick={() => {
-              openDischarge();
-              setContextMenu(null);
-            }}
-          >
-            End care contact…
+            End care contact...
           </button>
         </div>
       )}
 
-      {/* Dialogs */}
+      <AdmitPatientDialog
+        open={dialogs.admit}
+        defaultWard={realUnits[0]?.name || ""}
+        defaultTeam={teams[0]?.name || ""}
+        wards={realUnits.map((u: any) => u.name)}
+        teams={teams.map((t: any) => t.name)}
+        beds={admissionBeds}
+        onClose={() => close("admit")}
+        onSave={handleAdmitPatient}
+      />
+
       <PatientCardDialog
-        open={openPatientCard && !!selectedInpatient}
-        patient={selectedInpatient}
-        onClose={() => setOpenPatientCard(false)}
+        open={dialogs.card}
+        patient={selectedPatient}
+        onClose={() => close("card")}
+      />
+
+      <PatientLogDialog
+        open={dialogs.log}
+        patient={selectedPatient}
+        entries={patientEntries}
+        loading={logLoading}
+        onClose={() => close("log")}
       />
 
       <PlannedDischargeDialog
-        open={openDischargeDialog && !!selectedInpatient}
-        patient={selectedInpatient}
-        initialData={
-          selectedInpatient?.plannedDischarge
-            ? {
-                date: selectedInpatient.plannedDischarge.dateTime.split(" ")[0],
-                time: selectedInpatient.plannedDischarge.dateTime.split(" ")[1] || "00:00",
-                status: selectedInpatient.plannedDischarge.status as PlannedDischargeStatus,
-              }
-            : undefined
-        }
-        onClose={() => setOpenDischargeDialog(false)}
-        onSave={handleSavePlannedDischarge}
-      />
-
-      <AdmitPatientDialog
-        open={openAdmissionDialog}
-        defaultWard="Stroke ward"
-        defaultTeam="Blue team"
-        beds={admissionBedOptions}
-        onClose={() => setOpenAdmissionDialog(false)}
-        onSave={handleSaveAdmission}
+        open={dialogs.discharge}
+        patient={selectedPatient}
+        onClose={() => close("discharge")}
+        onSave={saveDischarge}
       />
 
       <ReserveBedDialog
-        open={openBedDialog}
-        beds={reserveBedOptions}
-        onClose={() => {
-          setOpenBedDialog(false);
-          setSelectedTransferForBed(null);
-        }}
-        onReserve={handleReserveBed}
+        open={dialogs.reserveBed}
+        beds={reserveBeds}
+        onClose={() => close("reserveBed")}
+        onReserve={() => {}}
       />
 
-      {/* Inbound “Transfer now” */}
       <TransferPatientDialog
-        open={openTransferDialog && !!selectedTransferForAction}
-        transfer={selectedTransferForAction}
-        facilityOptions={[...facilityOptions]}
-        unitsByFacility={unitsByFacility}
-        onClose={() => setOpenTransferDialog(false)}
-        onTransfer={handleTransferPatientInbound}
-        confirmLabel="Transfer now"
-      />
-
-      {/* Outbound “Plan transfer” */}
-      <TransferPatientDialog
-        open={openPlanTransferDialog && !!outboundTransferDraft}
-        transfer={outboundTransferDraft}
-        facilityOptions={[...facilityOptions]}
-        unitsByFacility={unitsByFacility}
-        onClose={() => {
-          setOpenPlanTransferDialog(false);
-          setOutboundTransferDraft(null);
+        open={dialogs.planTransfer}
+        transfer={{
+          id: selectedPatient?.id || "",
+          direction: "outbound",
+          type: "Same episode",
+          name: selectedPatient?.name || "",
+          nationalId: selectedPatient?.nationalId || "",
+          fromFacility: "",
+          toFacility: "",
+          fromUnit: "",
+          toUnit: "",
+          transferTime: "",
+          status: "planned",
         }}
-        onTransfer={handleSaveOutboundTransfer}
+        onClose={() => close("planTransfer")}
+        onTransfer={handlePlanTransfer}
         confirmLabel="Save"
       />
 
       <EwsDialog
-        open={openEwsDialog && !!selectedInpatient}
-        patient={selectedInpatient}
-        onClose={() => setOpenEwsDialog(false)}
-        onSave={handleSaveNewEws}
+        open={dialogs.ews}
+        patient={selectedPatient}
+        onClose={() => close("ews")}
+        onSaved={refetch}
       />
 
       <EwsLogDialog
-        open={openEwsLogDialog && !!selectedInpatient}
-        patient={selectedInpatient}
-        entries={selectedInpatient ? ewsLogs[selectedInpatient.nationalId] || [] : []}
-        onClose={() => setOpenEwsLogDialog(false)}
-      />
-
-      <PatientLogDialog
-        open={openPatientLogDialog && !!selectedInpatient}
-        patient={selectedInpatient}
-        entries={selectedInpatient ? patientLogs[selectedInpatient.nationalId] || [] : []}
-        onClose={() => setOpenPatientLogDialog(false)}
+        open={dialogs.ewsLog}
+        patient={selectedPatient}
+        onClose={() => close("ewsLog")}
       />
 
       <ChangeBedDialog
-        open={openBedChangeDialog && !!selectedInpatient}
-        patient={selectedInpatient}
-        beds={changeBedOptions}
-        onClose={() => setOpenBedChangeDialog(false)}
+        open={dialogs.changeBed}
+        patient={selectedPatient}
+        beds={changeBeds}
+        onClose={() => close("changeBed")}
         onChangeBed={handleChangeBed}
       />
 
       <CoordinationDialog
-        open={openCoordinationDialog && !!selectedInpatient}
-        patient={selectedInpatient}
-        availableUnits={[...unitOptions]}
-        initialData={coordinationTargetId ? coordinationCases[coordinationTargetId] : undefined}
-        onClose={() => {
-          setOpenCoordinationDialog(false);
-          setCoordinationTargetId(null);
-        }}
+        open={dialogs.coordination}
+        patient={selectedPatient}
+        availableUnits={realUnits.map((u: any) => u.name)}
+        initialData={coordinationLoading ? undefined : coordinationData}
+        onClose={() => close("coordination")}
         onSave={handleSaveCoordination}
       />
     </div>
   );
-};
-
-export default UnitOverviewPage;
+}

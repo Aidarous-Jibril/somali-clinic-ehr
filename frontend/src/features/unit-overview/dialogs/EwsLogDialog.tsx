@@ -1,5 +1,4 @@
 // src/features/unit-overview/dialogs/EwsLogDialog.tsx
-import React, { useMemo } from "react";
 import {
   Button,
   Dialog,
@@ -7,101 +6,79 @@ import {
   DialogContent,
   DialogTitle,
 } from "@mui/material";
-import type { Inpatient, EwsEntry } from "../types";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
+import type { Inpatient } from "../types";
+import { useClinicalParameters } from "../../../hooks/journal/useClinicalParameters";
 
-type EwsLogDialogProps = {
+type Props = {
   open: boolean;
   patient: Inpatient | null;
-  entries: EwsEntry[];
   onClose: () => void;
 };
 
-// -----------------------------------------------------------------------------
-// Component
-// -----------------------------------------------------------------------------
-
-const EwsLogDialog: React.FC<EwsLogDialogProps> = ({
+export default function EwsLogDialog({
   open,
   patient,
-  entries,
   onClose,
-}) => {
-  // ---------------------------------------------------------------------------
-  // Derived state
-  // ---------------------------------------------------------------------------
+}: Props) {
+  const { data = [], isLoading } =
+    useClinicalParameters(patient?.encounterId);
 
-  const hasEntries = entries.length > 0;
-
-  const sortedEntries = useMemo(() => {
-    // dateTime is already "YYYY-MM-DD HH:mm" so string sort works for chronological order
-    return [...entries].sort((a, b) => b.dateTime.localeCompare(a.dateTime)); // newest first
-  }, [entries]);
-
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
+  const rows = data.filter(
+    (item: any) => item.name === "NEWS2"
+  );
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>EWS log</DialogTitle>
 
       <DialogContent>
-        {!patient ? null : (
-          <div className="mt-2 space-y-2 text-sm">
-            {/* Patient header */}
-            <div>
-              <span className="font-semibold">Patient: </span>
-              {patient.name} ({patient.nationalId})
-            </div>
-
-            {/* Log table */}
-            <div className="mt-2 max-h-64 overflow-auto rounded border border-gray-200 bg-gray-50">
-              <table className="min-w-full border-collapse text-xs">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="border border-gray-200 px-2 py-1 text-left">
-                      Date / time
-                    </th>
-                    <th className="border border-gray-200 px-2 py-1 text-left">
-                      Score
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {!hasEntries ? (
-                    <tr>
-                      <td
-                        colSpan={2}
-                        className="border border-gray-200 px-2 py-2 text-center text-gray-500"
-                      >
-                        No EWS values registered yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    sortedEntries.map((entry, idx) => (
-                      <tr
-                        key={`${entry.dateTime}-${idx}`}
-                        className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                      >
-                        <td className="border border-gray-200 px-2 py-1">
-                          {entry.dateTime}
-                        </td>
-                        <td className="border border-gray-200 px-2 py-1">
-                          {entry.score}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+        {patient && (
+          <div className="mb-3 text-sm font-medium">
+            {patient.name} ({patient.nationalId})
           </div>
         )}
+
+        <div className="rounded border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="p-2 text-left">Date</th>
+                <th className="p-2 text-left">Score</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={2} className="p-3">
+                    Loading...
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={2} className="p-3">
+                    No values found
+                  </td>
+                </tr>
+              ) : (
+                rows.map((row: any) => (
+                  <tr key={row.id} className="border-t">
+                    <td className="p-2">
+                      {new Date(
+                        row.recordedAt
+                      ).toLocaleString()}
+                    </td>
+
+                    <td className="p-2">
+                      {row.value}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </DialogContent>
 
       <DialogActions>
@@ -109,6 +86,4 @@ const EwsLogDialog: React.FC<EwsLogDialogProps> = ({
       </DialogActions>
     </Dialog>
   );
-};
-
-export default EwsLogDialog;
+}

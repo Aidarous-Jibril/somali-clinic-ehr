@@ -1,4 +1,5 @@
 // src/features/patient-overview/dialogs/AddFluidDialog.tsx
+
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Button,
@@ -11,58 +12,47 @@ import {
   TextField,
 } from "@mui/material";
 
-import type { FluidBalanceDetails, FluidBalanceEntry } from "../types";
+import type {
+  FluidBalanceDetails,
+  FluidBalanceEntry,
+  CreateFluidPayload,
+} from "../types";
+import {
+  todayISO,
+  nowHHmm,
+  splitMeasuredAt,
+  toNumberOrZero,
+  formatBalanceMl,
+} from "../helpers";
+/* ================= TYPES ================= */
 
 type Props = {
   open: boolean;
-  label: string; // e.g. "Today"
-  period: string; // e.g. "05:00–04:59"
+  label: string;
+  period: string;
   editing?: FluidBalanceEntry | null;
   onClose: () => void;
-  onSave: (entry: FluidBalanceEntry) => void;
+  onSave: (data: CreateFluidPayload) => void;
 };
 
 type FormState = {
-  date: string; // YYYY-MM-DD
-  time: string; // HH:mm
+  date: string;
+  time: string;
+
   oralMl: string;
   oralKcal: string;
+
   enteralMl: string;
   enteralKcal: string;
+
   bleedingMl: string;
   faecesMl: string;
   vomitingMl: string;
   urineMl: string;
 };
 
-const pad2 = (n: number) => String(n).padStart(2, "0");
 
-const todayISO = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-};
-
-const nowHHmm = () => {
-  const d = new Date();
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-};
-
-const splitMeasuredAt = (measuredAt: string) => {
-  // expects "YYYY-MM-DD HH:mm"
-  const [date, time] = measuredAt.split(" ");
-  return { date: date ?? todayISO(), time: (time ?? nowHHmm()).slice(0, 5) };
-};
-
-const toNumberOrZero = (s: string) => {
-  const v = Number(String(s).replace(",", "."));
-  return Number.isFinite(v) ? v : 0;
-};
-
-const formatBalanceMl = (ml: number) => {
-  const sign = ml >= 0 ? "+" : "−";
-  return `${sign}${Math.abs(ml).toLocaleString("sv-SE")} ml`;
-};
-
+/* ========== COMPONENT =========== */
 export const AddFluidDialog: React.FC<Props> = ({
   open,
   label,
@@ -84,7 +74,7 @@ export const AddFluidDialog: React.FC<Props> = ({
     urineMl: "",
   });
 
-  // Prefill for edit / reset for create
+  /* ================= PREFILL ================= */
   useEffect(() => {
     if (!open) return;
 
@@ -95,10 +85,13 @@ export const AddFluidDialog: React.FC<Props> = ({
       setForm({
         date,
         time,
+
         oralMl: d.oralMl ? String(d.oralMl) : "",
         oralKcal: d.oralKcal ? String(d.oralKcal) : "",
+
         enteralMl: d.enteralMl ? String(d.enteralMl) : "",
         enteralKcal: d.enteralKcal ? String(d.enteralKcal) : "",
+
         bleedingMl: d.bleedingMl ? String(d.bleedingMl) : "",
         faecesMl: d.faecesMl ? String(d.faecesMl) : "",
         vomitingMl: d.vomitingMl ? String(d.vomitingMl) : "",
@@ -108,10 +101,13 @@ export const AddFluidDialog: React.FC<Props> = ({
       setForm({
         date: todayISO(),
         time: nowHHmm(),
+
         oralMl: "",
         oralKcal: "",
+
         enteralMl: "",
         enteralKcal: "",
+
         bleedingMl: "",
         faecesMl: "",
         vomitingMl: "",
@@ -120,14 +116,18 @@ export const AddFluidDialog: React.FC<Props> = ({
     }
   }, [open, editing]);
 
+  /* ================= COMPUTED ================= */
   const details: FluidBalanceDetails = useMemo(() => {
     const measuredAt = `${form.date} ${form.time}`;
+
     return {
       measuredAt,
       oralMl: toNumberOrZero(form.oralMl),
       oralKcal: toNumberOrZero(form.oralKcal),
+
       enteralMl: toNumberOrZero(form.enteralMl),
       enteralKcal: toNumberOrZero(form.enteralKcal),
+
       bleedingMl: toNumberOrZero(form.bleedingMl),
       faecesMl: toNumberOrZero(form.faecesMl),
       vomitingMl: toNumberOrZero(form.vomitingMl),
@@ -136,7 +136,12 @@ export const AddFluidDialog: React.FC<Props> = ({
   }, [form]);
 
   const totalIn = details.oralMl + details.enteralMl;
-  const totalOut = details.bleedingMl + details.faecesMl + details.vomitingMl + details.urineMl;
+  const totalOut =
+    details.bleedingMl +
+    details.faecesMl +
+    details.vomitingMl +
+    details.urineMl;
+
   const total = totalIn - totalOut;
 
   const hasAnyValue =
@@ -147,24 +152,31 @@ export const AddFluidDialog: React.FC<Props> = ({
 
   const saveDisabled = !hasAnyValue;
 
+  /* ================= SAVE ================= */
   const handleSave = () => {
-    const id = editing?.id ?? `fluid-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const measuredAt = `${form.date} ${form.time}`;
 
-    const entry: FluidBalanceEntry = {
-      id,
+    onSave({
+      measuredAt,
       label: editing?.label ?? label,
       period: editing?.period ?? period,
-      intakeMl: totalIn,
-      outputMl: totalOut,
-      balance: formatBalanceMl(total),
-      details,
-    };
 
-    onSave(entry);
+      oralMl: details.oralMl,
+      enteralMl: details.enteralMl,
+
+      urineMl: details.urineMl,
+      bleedingMl: details.bleedingMl,
+      faecesMl: details.faecesMl,
+      vomitingMl: details.vomitingMl,
+    });
   };
 
-  const setField = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((p) => ({ ...p, [key]: e.target.value }));
+  /* ================= HELPERS ================= */
+  const setField =
+    (key: keyof FormState) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setForm((p) => ({ ...p, [key]: e.target.value }));
+    };
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">

@@ -1,17 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -20,11 +6,92 @@ datasource db {
   provider = "postgresql"
 }
 
-enum Gender {
-  male
-  female
-  other
-  unknown
+model Clinic {
+  id             String          @id @default(uuid())
+  code           String          @unique
+  name           String
+  mrnCounter     Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  encounters     Encounter[]
+  labResults     LabResult[]
+  medications    Medication[]    @relation("ClinicMedications")
+  patients       Patient[]
+  referrals      Referral[]
+  referralsSent  Referral[]      @relation("ReferralFromClinic")
+  staffAccounts  StaffAccount[]
+  units          Unit[]
+  vaccinations   Vaccination[]
+  orders         Order[]
+  appointments   Appointment[]
+  journalTables  JournalTable[]
+  inpatientStays InpatientStay[]
+  consents       Consent[]
+  teams          Team[]
+}
+
+model Patient {
+  id                  String              @id @default(uuid())
+  mrn                 String
+  clinicId            String
+  firstName           String
+  lastName            String
+  gender              Gender
+  dateOfBirth         DateTime
+  phone               String?
+  email               String?
+  nationalId          String?
+  isDeleted           Boolean             @default(false)
+  deletedAt           DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  encounters          Encounter[]
+  fluidBalanceEntries FluidBalanceEntry[]
+  labResults          LabResult[]
+  medications         Medication[]        @relation("PatientMedications")
+  clinic              Clinic              @relation(fields: [clinicId], references: [id])
+  vaccinations        Vaccination[]
+  orders              Order[]
+  appointments        Appointment[]
+  journalTables       JournalTable[]
+  inpatientStays      InpatientStay[]
+  consents            Consent[]
+
+  referralsReceived Referral[] @relation("ReferralTargetPatient")
+  referralsSource   Referral[] @relation("ReferralSourcePatient")
+  samples           Sample[]
+
+  @@unique([clinicId, mrn])
+  @@index([lastName, firstName])
+}
+
+model Encounter {
+  id                       String                   @id @default(uuid())
+  type                     EncounterType
+  status                   EncounterStatus          @default(open)
+  reason                   String?
+  notes                    String?
+  startedAt                DateTime                 @default(now())
+  endedAt                  DateTime?
+  clinicId                 String
+  patientId                String
+  parameters               ClinicalParameterName[]
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  clinicalParameterEntries ClinicalParameterEntry[]
+  clinic                   Clinic                   @relation(fields: [clinicId], references: [id])
+  patient                  Patient                  @relation(fields: [patientId], references: [id])
+  fluidBalanceEntries      FluidBalanceEntry[]
+  medications              Medication[]             @relation("EncounterMedications")
+  referrals                Referral[]
+  vaccinations             Vaccination[]
+  orders                   Order[]
+  appointments             Appointment[]
+  journalTables            JournalTable[]
+  inpatientStays           InpatientStay[]
+
+  @@index([patientId])
+  @@index([clinicId])
 }
 
 enum EncounterType {
@@ -40,55 +107,463 @@ enum EncounterStatus {
   cancelled
 }
 
-model Clinic {
-  id         String @id @default(uuid())
-  code       String @unique
-  name       String
-  mrnCounter Int    @default(0)
+model ClinicalParameterEntry {
+  id          String                @id @default(uuid())
+  encounterId String
+  name        ClinicalParameterName
+  value       String
+  note        String?
+
+  recordedByAccountId String?
+  recordedByAccount   StaffAccount? @relation(fields: [recordedByAccountId], references: [id])
+
+  recordedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  encounter Encounter @relation(fields: [encounterId], references: [id])
+
+  @@index([encounterId])
+  @@index([name])
+}
+
+model Order {
+  id String @id @default(uuid())
+
+  clinicId    String
+  patientId   String
+  encounterId String
+
+  clinic    Clinic    @relation(fields: [clinicId], references: [id])
+  patient   Patient   @relation(fields: [patientId], references: [id])
+  encounter Encounter @relation(fields: [encounterId], references: [id])
+
+  category OrderCategory
+  code     String
+  name     String
+
+  status OrderStatus @default(ordered)
+
+  orderedByAccountId String
+  orderedByAccount   StaffAccount @relation("OrderOrderedBy", fields: [orderedByAccountId], references: [id])
+
+  resultedByAccountId String?
+  resultedByAccount   StaffAccount? @relation("OrderResultedBy", fields: [resultedByAccountId], references: [id])
+
+  reviewedByAccountId String?
+  reviewedByAccount   StaffAccount? @relation("OrderReviewedBy", fields: [reviewedByAccountId], references: [id])
+
+  orderedAt       DateTime  @default(now())
+  plannedAt       DateTime?
+  performerUnitId String?
+  performerUnit   Unit?     @relation(fields: [performerUnitId], references: [id])
+  comment         String?
+  // lifecycle
+  resultedAt      DateTime?
+  reviewedAt      DateTime?
+  completedAt     DateTime?
+  cancelledAt     DateTime?
+
+  labResults LabResult[]
+  samples    Sample[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  patients    Patient[]
-  encounters  Encounter[]
-  orders      Order[]
-  labResults  LabResult[]
-  medications Medication[] @relation("ClinicMedications")
-  referrals   Referral[]
+  @@index([patientId])
+  @@index([encounterId])
+  @@index([category])
+  @@map("orders")
 }
 
-model Patient {
+model LabResult {
+  id         String        @id @default(uuid())
+  clinicId   String
+  patientId  String
+  orderId    String
+  value      String
+  unit       String?
+  flag       LabResultFlag
+  resultDate DateTime      @default(now())
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  clinic     Clinic        @relation(fields: [clinicId], references: [id])
+  order      Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  patient    Patient       @relation(fields: [patientId], references: [id])
+
+  @@index([patientId])
+  @@index([orderId])
+}
+
+model Medication {
+  id          String  @id @default(uuid())
+  clinicId    String
+  patientId   String
+  encounterId String?
+
+  // Basic information
+  name      String
+  strength  String?
+  dose      String
+  frequency MedicationFrequency
+  route     MedicationRoute?
+  form      String?
+
+  // UI fields
+  groupType  MedicationGroupType @default(current)
+  dosingText String?
+  tooltip    String?
+
+  // Status
+  status MedicationStatus @default(active)
+
+  // Prescriber
+  prescribedByAccountId String
+  prescribedByAccount   StaffAccount @relation(fields: [prescribedByAccountId], references: [id])
+
+  // Dates
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+
+  // Clinical notes
+  indication String?
+  notes      String?
+
+  // Relations
+  clinic    Clinic     @relation("ClinicMedications", fields: [clinicId], references: [id])
+  patient   Patient    @relation("PatientMedications", fields: [patientId], references: [id])
+  encounter Encounter? @relation("EncounterMedications", fields: [encounterId], references: [id])
+
+  // New relations
+  scheduledDoses  MedicationDose[]
+  administrations MedicationAdministration[]
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([clinicId])
+  @@index([status])
+  @@index([groupType])
+}
+
+model MedicationTemplate {
+  id       String @id @default(uuid())
+  clinicId String
+
+  // Display fields for Favorites table
+  treatmentReason String?
+  templateName    String
+  product         String
+  form            String?
+  strength        String?
+  dosing          String?
+
+  // Default values used when opening Register Medication dialog
+  name          String?
+  dose          String?
+  frequency     MedicationFrequency @default(once_daily)
+  groupType     MedicationGroupType @default(current)
+  dosingText    String?
+  indication    String?
+  strengthValue String?
+  formValue     String?
+  route         MedicationRoute?
+  notes         String?
+
+  // UI flags
+  recommended Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clinicId])
+}
+
+enum MedicationGroupType {
+  current
+  prn
+  notScheduled
+  generalDirective
+}
+
+enum MedicationRoute {
+  oral
+  intravenous
+  intramuscular
+  subcutaneous
+  inhalation
+  topical
+  rectal
+  ophthalmic
+  otic
+  nasal
+  other
+}
+
+enum MedicationDoseStatus {
+  planned
+  prepared
+  given
+  missed
+  skipped
+  selfAdmin
+  notNeeded
+}
+
+enum MedicationAdministrationAction {
+  prepare
+  administer
+  selfAdminister
+  skip
+}
+
+model MedicationDose {
   id String @id @default(uuid())
 
-  mrn String
+  medicationId String
+  medication   Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+
+  scheduledDate DateTime
+  label         String
+  tooltip       String?
+
+  isPrn Boolean @default(false)
+
+  status MedicationDoseStatus @default(planned)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  administrations MedicationAdministration[]
+
+  @@index([medicationId])
+  @@index([scheduledDate])
+  @@index([status])
+}
+
+model MedicationAdministration {
+  id String @id @default(uuid())
+
+  medicationId String
+  medication   Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+
+  doseId String?
+  dose   MedicationDose? @relation(fields: [doseId], references: [id], onDelete: SetNull)
+
+  action MedicationAdministrationAction
+
+  administeredDose String?
+  batchNumber      String?
+  comment          String?
+  reason           String?
+
+  performedByAccountId String?
+  performedByAccount   StaffAccount? @relation(fields: [performedByAccountId], references: [id])
+
+  performedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([medicationId])
+  @@index([doseId])
+  @@index([performedAt])
+}
+
+model Unit {
+  id                String            @id @default(uuid())
+  name              String
+  clinicId          String
+  createdAt         DateTime          @default(now())
+  referralsSent     Referral[]        @relation("ReferralFromUnit")
+  referralsReceived Referral[]        @relation("ReferralToUnit")
+  assignments       StaffAssignment[]
+  clinic            Clinic            @relation(fields: [clinicId], references: [id])
+  orders            Order[]
+  appointments      Appointment[]
+  inpatientStays    InpatientStay[]
+  teams             Team[]
+}
+
+model Team {
+  id String @id @default(uuid())
+
+  name     String
+  unitId   String
+  clinicId String
+
+  unit             Unit              @relation(fields: [unitId], references: [id])
+  staffAssignments StaffAssignment[]
+  clinic           Clinic            @relation(fields: [clinicId], references: [id])
+}
+
+model Referral {
+  id String @id @default(uuid())
 
   clinicId String
   clinic   Clinic @relation(fields: [clinicId], references: [id])
 
-  firstName   String
-  lastName    String
-  gender      Gender
-  dateOfBirth DateTime
+  patientId String
+  patient   Patient @relation("ReferralTargetPatient", fields: [patientId], references: [id])
 
-  phone      String?
-  email      String?
-  nationalId String?
+  sourcePatientId String?
+  sourcePatient   Patient? @relation("ReferralSourcePatient", fields: [sourcePatientId], references: [id])
 
-  isDeleted Boolean   @default(false)
-  deletedAt DateTime?
+  encounterId String?
+  encounter   Encounter? @relation(fields: [encounterId], references: [id])
+
+  toUnitId String?
+  toUnit   Unit?   @relation("ReferralToUnit", fields: [toUnitId], references: [id])
+
+  fromClinicId String?
+  fromClinic   Clinic? @relation("ReferralFromClinic", fields: [fromClinicId], references: [id])
+
+  fromUnitId String?
+  fromUnit   Unit?   @relation("ReferralFromUnit", fields: [fromUnitId], references: [id])
+
+  sentByAccountId String?
+  sentByAccount   StaffAccount? @relation(fields: [sentByAccountId], references: [id])
+
+  status ReferralStatus @default(unassessed)
+
+  urgent            Boolean @default(false)
+  hasAdditionalInfo Boolean @default(false)
+  details           String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
 
-  encounters          Encounter[]
-  orders              Order[]
-  labResults          LabResult[]
-  medications         Medication[]        @relation("PatientMedications")
-  referrals           Referral[]
-  fluidBalanceEntries FluidBalanceEntry[]
+model FluidBalanceEntry {
+  id          String               @id @default(uuid())
+  clinicId    String
+  patientId   String
+  encounterId String?
+  measuredAt  DateTime
+  label       String
+  period      String
+  intakeMl    Int
+  outputMl    Int
+  balanceMl   Int
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  details     FluidBalanceDetails?
+  encounter   Encounter?           @relation(fields: [encounterId], references: [id])
+  patient     Patient              @relation(fields: [patientId], references: [id])
 
-  @@unique([clinicId, mrn])
-  @@index([lastName, firstName])
+  @@index([patientId])
+  @@index([measuredAt])
+}
+
+model FluidBalanceDetails {
+  id          String            @id @default(uuid())
+  entryId     String            @unique
+  oralMl      Int               @default(0)
+  oralKcal    Int               @default(0)
+  enteralMl   Int               @default(0)
+  enteralKcal Int               @default(0)
+  urineMl     Int               @default(0)
+  bleedingMl  Int               @default(0)
+  faecesMl    Int               @default(0)
+  vomitingMl  Int               @default(0)
+  entry       FluidBalanceEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  // entry       FluidBalanceEntry @relation(fields: [entryId], references: [id])
+}
+
+model Vaccination {
+  id             String            @id @default(uuid())
+  clinicId       String
+  patientId      String
+  encounterId    String?
+  vaccineName    String
+  dose           String?
+  manufacturer   String?
+  batchNumber    String?
+  administeredAt DateTime          @default(now())
+  status         VaccinationStatus @default(active)
+  notes          String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  clinic         Clinic            @relation(fields: [clinicId], references: [id])
+  encounter      Encounter?        @relation(fields: [encounterId], references: [id])
+  patient        Patient           @relation(fields: [patientId], references: [id])
+
+  administeredByAccountId String?
+  administeredByAccount   StaffAccount? @relation(fields: [administeredByAccountId], references: [id])
+
+  @@index([patientId])
+  @@index([clinicId])
+}
+
+model StaffPerson {
+  id            String   @id @default(uuid())
+  firstName     String
+  lastName      String
+  licenseNumber String?  @unique
+  nationalId    String?
+  phone         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  accounts StaffAccount[]
+}
+
+model StaffAccount {
+  id        String   @id @default(uuid())
+  personId  String
+  clinicId  String
+  email     String
+  password  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  person      StaffPerson       @relation(fields: [personId], references: [id])
+  clinic      Clinic            @relation(fields: [clinicId], references: [id])
+  assignments StaffAssignment[]
+
+  orderedOrders  Order[] @relation("OrderOrderedBy")
+  resultedOrders Order[] @relation("OrderResultedBy")
+  reviewedOrders Order[] @relation("OrderReviewedBy")
+
+  collectedSamples     Sample[]              @relation("SampleCollectedBy")
+  processedSamples     Sample[]              @relation("SampleProcessedBy")
+  sampleTrackingEvents SampleTrackingEvent[]
+
+  medications              Medication[]
+  performedAdministrations MedicationAdministration[]
+  vaccinations             Vaccination[]
+  referralsSent            Referral[]
+  clinicalParameterEntries ClinicalParameterEntry[]
+
+  @@unique([clinicId, email])
+}
+
+model StaffAssignment {
+  id        String  @id @default(uuid())
+  accountId String
+  unitId    String?
+  teamId    String?
+
+  role      ReferralRole
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  account StaffAccount @relation(fields: [accountId], references: [id])
+  unit    Unit?        @relation(fields: [unitId], references: [id])
+  team    Team?        @relation(fields: [teamId], references: [id])
+
+  appointments Appointment[]
+
+  @@index([teamId])
+}
+
+enum Gender {
+  male
+  female
+  other
+  unknown
 }
 
 enum ClinicalParameterName {
@@ -101,61 +576,6 @@ enum ClinicalParameterName {
   consciousness
 }
 
-model Encounter {
-  id String @id @default(uuid())
-
-  type   String
-  status String @default("open")
-
-  reason String?
-  notes  String?
-
-  startedAt DateTime  @default(now())
-  endedAt   DateTime?
-
-  clinicId  String
-  clinic    Clinic  @relation(fields: [clinicId], references: [id])
-  patientId String
-  patient   Patient @relation(fields: [patientId], references: [id])
-
-  parameters ClinicalParameterName[]
-
-  createdAt                DateTime                 @default(now())
-  updatedAt                DateTime                 @updatedAt
-  clinicalParameterEntries ClinicalParameterEntry[]
-  orders                   Order[]
-  medications              Medication[]             @relation("EncounterMedications")
-  referrals                Referral[]
-  fluidBalanceEntries      FluidBalanceEntry[]
-
-  @@index([patientId])
-  @@index([clinicId])
-}
-
-model ClinicalParameterEntry {
-  id String @id @default(uuid())
-
-  encounterId String
-  encounter   Encounter @relation(fields: [encounterId], references: [id])
-
-  name ClinicalParameterName
-
-  // Stored as STRING to allow "120/80", "98 %", etc.
-  value String
-
-  // Optional metadata
-  note String?
-
-  recordedBy String? // clinician name or ID
-
-  recordedAt DateTime @default(now())
-
-  createdAt DateTime @default(now())
-
-  @@index([encounterId])
-  @@index([name])
-}
-
 enum OrderCategory {
   chemistry
   microbiology
@@ -164,40 +584,13 @@ enum OrderCategory {
 }
 
 enum OrderStatus {
-  ordered
-  collected
-  resulted
+  ordered // created by doctor
+  in_progress // lab accepted/scheduled/collected
+  awaiting_result
+  resulted // lab finished result
+  reviewed // doctor reviewed
+  completed // closed
   cancelled
-}
-
-model Order {
-  id String @id @default(uuid())
-
-  clinicId String
-  clinic   Clinic @relation(fields: [clinicId], references: [id])
-
-  patientId String
-  patient   Patient @relation(fields: [patientId], references: [id])
-
-  encounterId String
-  encounter   Encounter @relation(fields: [encounterId], references: [id])
-
-  category OrderCategory
-  code     String
-  name     String
-  status   OrderStatus   @default(ordered)
-
-  orderedBy String
-  orderedAt DateTime @default(now())
-
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  labResults LabResult[]
-
-  @@index([patientId])
-  @@index([encounterId])
-  @@index([category])
-  @@map("orders") // 🔥 THIS IS THE FIX
 }
 
 enum LabResultFlag {
@@ -205,31 +598,6 @@ enum LabResultFlag {
   high
   low
   critical
-}
-
-model LabResult {
-  id String @id @default(uuid())
-
-  clinicId String
-  clinic   Clinic @relation(fields: [clinicId], references: [id])
-
-  patientId String
-  patient   Patient @relation(fields: [patientId], references: [id])
-
-  orderId String
-  order   Order  @relation(fields: [orderId], references: [id])
-
-  value String // "61"
-  unit  String? // "mmol/mol"
-  flag  LabResultFlag // high / low / normal
-
-  resultDate DateTime @default(now())
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([patientId])
-  @@index([orderId])
 }
 
 enum MedicationStatus {
@@ -246,35 +614,17 @@ enum MedicationFrequency {
   as_needed
 }
 
-model Medication {
-  id String @id @default(uuid())
-
-  clinicId String
-  clinic   Clinic @relation("ClinicMedications", fields: [clinicId], references: [id])
-
-  patientId String
-  patient   Patient @relation("PatientMedications", fields: [patientId], references: [id])
-
-  encounterId String?
-  encounter   Encounter? @relation("EncounterMedications", fields: [encounterId], references: [id])
-
-  name      String
-  strength  String?
-  dose      String
-  frequency MedicationFrequency
-
-  status MedicationStatus @default(active)
-
-  startDate DateTime  @default(now())
-  endDate   DateTime?
-
-  notes String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([patientId])
-  @@index([clinicId])
+model NutritionPrescription {
+  id           String    @id @default(uuid())
+  patientId    String
+  productName  String
+  description  String?
+  articleNo    String?
+  productArea  String?
+  prescribedAt DateTime  @default(now())
+  validUntil   DateTime?
+  prescriber   String?
+  status       String    @default("valid")
 }
 
 enum ReferralStatus {
@@ -285,47 +635,22 @@ enum ReferralStatus {
 }
 
 enum ReferralRole {
+  SuperAdmin
+  ClinicAdmin
+
   Doctor
   Nurse
+
+  Lab
+  Radiology
+
   Physiotherapist
   OccupationalTherapist
   Dietitian
   SpeechTherapist
   Midwife
+
   Other
-}
-
-model Referral {
-  id String @id @default(uuid())
-
-  clinicId String
-  clinic   Clinic @relation(fields: [clinicId], references: [id])
-
-  patientId String
-  patient   Patient @relation(fields: [patientId], references: [id])
-
-  encounterId String?
-  encounter   Encounter? @relation(fields: [encounterId], references: [id])
-
-  to   String
-  from String
-
-  sentByRole ReferralRole
-  sentByName String
-  sentByUnit String?
-
-  status ReferralStatus @default(unassessed)
-
-  urgent            Boolean @default(false)
-  hasAdditionalInfo Boolean @default(false)
-
-  details String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([patientId])
-  @@index([clinicId])
 }
 
 enum FluidIntakeSource {
@@ -342,8 +667,130 @@ enum FluidOutputSource {
   other
 }
 
-model FluidBalanceEntry {
+enum VaccinationStatus {
+  active
+  completed
+  declined
+}
+
+model Appointment {
   id String @id @default(uuid())
+
+  clinicId String
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  doctorAssignmentId String
+  doctorAssignment   StaffAssignment @relation(fields: [doctorAssignmentId], references: [id])
+
+  unitId String?
+  unit   Unit?   @relation(fields: [unitId], references: [id])
+
+  encounterId String?
+  encounter   Encounter? @relation(fields: [encounterId], references: [id])
+
+  scheduledAt DateTime
+  duration    Int? // minutes
+
+  type String? // consultation, follow-up, etc.
+
+  status AppointmentStatus @default(booked)
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([doctorAssignmentId, scheduledAt])
+  @@index([patientId])
+}
+
+enum AppointmentStatus {
+  booked
+  arrived
+  in_progress
+  completed
+  no_show
+  cancelled
+}
+
+model JournalTable {
+  id String @id @default(uuid())
+
+  clinicId    String
+  patientId   String
+  encounterId String
+
+  title String
+  unit  String
+
+  status JournalTableStatus @default(open)
+
+  closeReason     String?
+  closeComment    String?
+  closedAt        DateTime?
+  closedByStaffId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic    Clinic     @relation(fields: [clinicId], references: [id])
+  patient   Patient    @relation(fields: [patientId], references: [id])
+  encounter Encounter? @relation(fields: [encounterId], references: [id])
+
+  notes JournalNote[]
+}
+
+model JournalNote {
+  id String @id @default(uuid())
+
+  tableId     String
+  patientId   String
+  clinicId    String
+  encounterId String?
+
+  templateId String?
+  title      String
+
+  content       String
+  sectionValues Json?
+
+  status JournalNoteStatus @default(draft)
+
+  authorId   String?
+  authorName String
+
+  unit String
+
+  eventDateTime DateTime
+  signedAt      DateTime?
+  voidedAt      DateTime?
+  voidReason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  table JournalTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+}
+
+enum JournalNoteStatus {
+  draft
+  signed
+  voided
+}
+
+enum JournalTableStatus {
+  open
+  closed
+}
+
+model InpatientStay {
+  id String @id @default(uuid())
+
+  clinicId String
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
 
   patientId String
   patient   Patient @relation(fields: [patientId], references: [id])
@@ -351,37 +798,169 @@ model FluidBalanceEntry {
   encounterId String?
   encounter   Encounter? @relation(fields: [encounterId], references: [id])
 
-  measuredAt DateTime
-  label      String // "Today", "Yesterday"
-  period     String // "05:00–04:59"
+  unitId String?
+  unit   Unit?   @relation(fields: [unitId], references: [id])
 
-  intakeMl  Int
-  outputMl  Int
-  balanceMl Int
+  bedCode String
+  team    String?
 
-  details FluidBalanceDetails?
+  ews Int?
+
+  admittedAt   DateTime  @default(now())
+  dischargedAt DateTime?
+
+  plannedDischargeAt     DateTime?
+  plannedDischargeStatus String?
+
+  technicalUnit String?
+  activity      String?
+  absence       String?
+
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  coordinationCase CoordinationCase?
+
+  @@index([clinicId])
+  @@index([patientId])
+  @@index([dischargedAt])
+}
+
+model CoordinationCase {
+  id String @id @default(uuid())
+
+  stayId String        @unique
+  stay   InpatientStay @relation(fields: [stayId], references: [id], onDelete: Cascade)
+
+  infoSharingConsent String
+  coordinationNeeded String
+  sipConsent         String
+
+  adminComment String?
+
+  recipients Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ConsentStatus {
+  active
+  ended
+  upcoming
+  cancelled
+}
+
+model Consent {
+  id String @id @default(uuid())
+
+  clinicId  String
+  patientId String
+
+  clinic  Clinic  @relation(fields: [clinicId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  type             String
+  title            String
+  organizationLine String
+
+  startDate DateTime
+  endDate   DateTime
+
+  status ConsentStatus @default(active)
+
+  createdByStaffId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([clinicId])
+}
+
+enum SampleType {
+  blood
+  urine
+  stool
+  saliva
+  tissue
+  swab
+  serum
+  plasma
+  csf
+  biopsy
+  other
+}
+
+enum SampleStatus {
+  registered
+  collected
+  in_transit
+  received
+  processing
+  completed
+  rejected
+}
+
+enum SampleTrackingEventType {
+  registered
+  collected
+  transferred
+  received
+  processing
+  completed
+  rejected
+}
+
+model Sample {
+  id String @id @default(uuid())
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  sampleType SampleType
+
+  status SampleStatus @default(registered)
+
+  barcode String? @unique
+
+  collectedAt DateTime?
+  receivedAt  DateTime?
+  processedAt DateTime?
+
+  collectedByAccountId String?
+  collectedByAccount   StaffAccount? @relation("SampleCollectedBy", fields: [collectedByAccountId], references: [id])
+
+  processedByAccountId String?
+  processedByAccount   StaffAccount? @relation("SampleProcessedBy", fields: [processedByAccountId], references: [id])
+
+  notes String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  trackingEvents SampleTrackingEvent[]
+
+  @@index([orderId])
   @@index([patientId])
-  @@index([measuredAt])
+  @@index([status])
 }
 
-model FluidBalanceDetails {
+model SampleTrackingEvent {
   id String @id @default(uuid())
 
-  entryId String            @unique
-  entry   FluidBalanceEntry @relation(fields: [entryId], references: [id])
+  sampleId String
+  sample   Sample @relation(fields: [sampleId], references: [id], onDelete: Cascade)
 
-  oralMl   Int @default(0)
-  oralKcal Int @default(0)
+  type SampleTrackingEventType
 
-  enteralMl   Int @default(0)
-  enteralKcal Int @default(0)
+  performedByAccountId String?
+  performedByAccount   StaffAccount? @relation(fields: [performedByAccountId], references: [id])
 
-  urineMl    Int @default(0)
-  bleedingMl Int @default(0)
-  faecesMl   Int @default(0)
-  vomitingMl Int @default(0)
+  details String?
+
+  createdAt DateTime @default(now())
+
+  @@index([sampleId])
 }

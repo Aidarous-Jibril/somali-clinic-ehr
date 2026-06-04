@@ -2,15 +2,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 
-import type {
-  OrderResult,
-  OrderResultCategoryGroup,
-} from "../../features/patient-overview/types";
+import type { OrderResult, OrderResultCategoryGroup } from "../../features/patient-overview/types";
 
 import { getLabMeta } from "../../features/patient-overview/helpers";
+import { formatDateTime } from "../../utils/dateFormat";
 
 /* ========== PROPS =========== */
-
 type Props = {
   results: OrderResult[];
   search: string;
@@ -19,13 +16,7 @@ type Props = {
 
 
 /* ========== CONSTANTS =========== */
-const PREFERRED_CATEGORIES = [
-  "Chemistry",
-  "Hematology",
-  "Microbiology",
-  "Radiology",
-  "Other",
-];
+const PREFERRED_CATEGORIES = [ "Chemistry", "Hematology", "Microbiology", "Radiology", "Other",];
 
 /* ========== HELPERS =========== */
 const groupResults = (
@@ -195,19 +186,20 @@ export const ResultsWidget: React.FC<Props> = ({
                             </td>
 
                             <td className="border-b px-2 py-1">
-                              {r.flag === "high" ||
-                              r.flag === "critical" ? (
+                              {r.flag === "high" || r.flag === "critical" ? (
                                 <span className="font-semibold text-red-600">
                                   {r.result}
                                   <span className="align-top text-[9px]">*</span>
                                 </span>
                               ) : (
-                                r.result
+                               <span className="font-semibold text-green-600">
+                                  {r.result}
+                                  <span className="align-top text-[9px]">*</span>
+                                </span>
                               )}
                             </td>
-
                             <td className="border-b px-2 py-1 text-gray-600">
-                              {r.date}
+                              {formatDateTime(r.date)}
                             </td>
                           </tr>
                         );

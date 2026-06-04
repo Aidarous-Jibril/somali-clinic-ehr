@@ -18,6 +18,7 @@ type PatientLogDialogProps = {
   patient: Inpatient | null;
   entries: PatientLogEntry[];
   onClose: () => void;
+  loading?: boolean;
 };
 
 // -----------------------------------------------------------------------------
@@ -29,6 +30,7 @@ const PatientLogDialog: React.FC<PatientLogDialogProps> = ({
   patient,
   entries,
   onClose,
+  loading = false,
 }) => {
   // ---------------------------------------------------------------------------
   // Derived values
@@ -73,38 +75,44 @@ const PatientLogDialog: React.FC<PatientLogDialogProps> = ({
                   </tr>
                 </thead>
 
-                <tbody>
-                  {!hasEntries ? (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="border border-gray-200 px-2 py-3 text-center text-gray-500"
-                      >
-                        No log entries for this care contact.
-                      </td>
-                    </tr>
-                  ) : (
-                    entries.map((entry, idx) => (
-                      <tr
-                        key={`${entry.dateTime}-${entry.category}-${idx}`}
-                        className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                      >
-                        <td className="border border-gray-200 px-2 py-1">
-                          {entry.dateTime}
-                        </td>
-                        <td className="border border-gray-200 px-2 py-1">
-                          {entry.category}
-                        </td>
-                        <td className="border border-gray-200 px-2 py-1">
-                          {entry.text}
-                        </td>
-                        <td className="border border-gray-200 px-2 py-1">
-                          {entry.author || ""}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
+               <tbody>
+  {loading ? (
+    <tr>
+      <td
+        colSpan={4}
+        className="border px-2 py-3 text-center text-gray-500"
+      >
+        Loading...
+      </td>
+    </tr>
+  ) : !hasEntries ? (
+    <tr>
+      <td
+        colSpan={4}
+        className="border px-2 py-3 text-center text-gray-500"
+      >
+        No log entries for this care contact.
+      </td>
+    </tr>
+  ) : (
+    entries.map((entry, idx) => (
+      <tr key={idx}>
+        <td className="border px-2 py-1">
+          {entry.dateTime}
+        </td>
+        <td className="border px-2 py-1">
+          {entry.category}
+        </td>
+        <td className="border px-2 py-1">
+          {entry.text}
+        </td>
+        <td className="border px-2 py-1">
+          {entry.author}
+        </td>
+      </tr>
+    ))
+  )}
+</tbody>
               </table>
             </div>
 

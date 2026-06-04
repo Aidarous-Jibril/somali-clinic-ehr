@@ -2,14 +2,13 @@ import { Router } from "express";
 import * as controller from "./encounter.controller.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 import { createEncounterSchema } from "./encounter.schema.js";
+import { requireRoles } from "../../middlewares/roles.middleware.js";
+import { Roles } from "../../constants/roles.js";
 
 const router = Router();
 
-// Create encounter
-router.post( "/", validate(createEncounterSchema), controller.createEncounter);
-// List encounters for patient
-router.get( "/patient/:patientId", controller.listEncountersByPatient );
-// Close encounter
-router.post( "/:encounterId/close", controller.closeEncounter);
-
+router.post( "/", requireRoles(Roles.Doctor, Roles.Nurse, ), validate(createEncounterSchema), controller.createEncounter);
+router.get( "/patient/:patientId", requireRoles(Roles.Doctor, Roles.Nurse, Roles.Lab), controller.listEncountersByPatient );
+router.get("/active/:patientId", requireRoles(Roles.Doctor, Roles.Nurse, Roles.Lab), controller.getActiveEncounter);
+router.patch("/:encounterId/close", requireRoles(Roles.Doctor,), controller.closeEncounter);
 export default router;

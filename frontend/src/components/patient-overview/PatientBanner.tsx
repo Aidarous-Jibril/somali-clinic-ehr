@@ -6,20 +6,22 @@ import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import PersonIcon from "@mui/icons-material/Person";
 import HomeIcon from "@mui/icons-material/Home";
 import { AttentionSignalWidget } from "./AttentionSignalWidget";
-
+import type { Patient } from "../../features/patient/types";
 
 /* ================= PROPS ==================== */
-type Patient = {
-  id: string;
-  name: string;
-  age: number;
-  unit: string;
-};
-
 type Props = {
   patient: Patient;
   onHomeCareClick: () => void;
 };
+
+// We calculate it from DOB.
+const calculateAge = (dateOfBirth: string) => {
+  const dob = new Date(dateOfBirth);
+  const diff = Date.now() - dob.getTime();
+  const ageDate = new Date(diff);
+  return Math.abs(ageDate.getUTCFullYear() - 1970);
+};
+
 
 /* ================= COMPONENT ==================== */
 export const PatientBanner: React.FC<Props> = ({ patient, onHomeCareClick }) => {
@@ -30,14 +32,14 @@ export const PatientBanner: React.FC<Props> = ({ patient, onHomeCareClick }) => 
         <AttentionSignalWidget />
 
         <span className="font-semibold">
-          {patient.id}, {patient.name}, {patient.age} år
+          {patient.firstName} {patient.lastName}, {calculateAge(patient.dateOfBirth)} år
         </span>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 text-xs">
         <div className="flex items-center gap-1">
           <PlaceIcon fontSize="small" />
-          <span>{patient.unit}</span>
+          <span>{patient.unit ?? patient.clinic?.name ?? "No unit assigned"}</span>
         </div>
         <div className="flex items-center gap-1">
           <WarningAmberIcon fontSize="small" />

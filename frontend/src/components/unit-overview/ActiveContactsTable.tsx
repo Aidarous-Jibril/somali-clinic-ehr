@@ -1,28 +1,27 @@
 // src/components/unit-overview/ActiveContactsTable.tsx
-import React, { useMemo } from "react";
+
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 
+import Tooltip from "@mui/material/Tooltip";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import HubIcon from "@mui/icons-material/Hub";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 
-import Tooltip from "@mui/material/Tooltip";
+import type { Inpatient, PlannedDischargeStatus, } from "../../features/unit-overview/types";
 
-import type {
-  Inpatient,
-  PlannedDischargeStatus,
-} from "../../features/unit-overview/types";
+import { formatDateTime } from "../../utils/dateFormat";
 
-// -----------------------------------------------------------------------------
+// ------------------------------------------------------
 // Types
-// -----------------------------------------------------------------------------
+// ------------------------------------------------------
 
 type Props = {
   inpatients: Inpatient[];
   allBeds: readonly string[];
   showEmptyBeds: boolean;
-
   onRowClick?: (patient: Inpatient) => void;
   onRowContextMenu?: (
     event: React.MouseEvent<HTMLTableRowElement>,
@@ -31,97 +30,113 @@ type Props = {
   onOpenCoordination?: (patient: Inpatient) => void;
 };
 
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
+// ------------------------------------------------------
+// Constants
+// ------------------------------------------------------
 
-function dischargeStatusIcon(status: PlannedDischargeStatus | undefined) {
-  if (!status) return null;
+const headers = [
+  "Bed / Room",
+  "Phone / ID",
+  "Name",
+  "EWS",
+  "Ward",
+  "Start date",
+  "Team",
+  "Coordination",
+  "Planned discharge",
+  "Planned transfer",
+];
 
-  switch (status) {
-    case "notEvaluated":
-      return (
-        <HelpOutlineIcon fontSize="small" className="text-gray-400 align-middle" />
-      );
-    case "possible":
-      return (
-        <HelpOutlineIcon fontSize="small" className="text-orange-500 align-middle" />
-      );
-    case "safe":
-      return (
-        <CheckCircleIcon fontSize="small" className="text-green-600 align-middle" />
-      );
-    default:
-      return null;
-  }
-}
+const normalizeBed = (value?: string | null) =>
+  (value ?? "").toLowerCase().replace(/\s+/g, "").trim();
 
-function getEwsPillClass(score: number) {
+const getPatientPath = (patient: Inpatient) =>
+  `/patients/${encodeURIComponent(patient.patientId || patient.id)}`;
+
+const getRowClass = (index: number) =>
+  `${index % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-blue-50`;
+
+const getEwsClass = (score: number) => {
   if (score >= 6) return "bg-red-600 text-white";
   if (score >= 3) return "bg-yellow-400 text-black";
   return "bg-green-500 text-white";
-}
+};
 
-// -----------------------------------------------------------------------------
+const renderDischargeIcon = (status?: PlannedDischargeStatus) => {
+  switch (status) {
+    case "safe":
+      return <CheckCircleIcon fontSize="small" className="text-green-600" />;
+
+    case "possible":
+      return <HelpOutlineIcon fontSize="small" className="text-orange-500" />;
+
+    case "notEvaluated":
+      return <HelpOutlineIcon fontSize="small" className="text-gray-400" />;
+
+    default:
+      return null;
+  }
+};
+
+// ------------------------------------------------------
 // Component
-// -----------------------------------------------------------------------------
+// ------------------------------------------------------
 
-export const ActiveContactsTable: React.FC<Props> = ({
+export const ActiveContactsTable = ({
   inpatients,
   allBeds,
   showEmptyBeds,
   onRowClick,
   onRowContextMenu,
   onOpenCoordination,
-}) => {
-  // Beds to show
-  const bedsToRender = useMemo(() => {
-    if (showEmptyBeds) return allBeds;
-    return Array.from(new Set(inpatients.map((p) => p.bed)));
-  }, [showEmptyBeds, allBeds, inpatients]);
+}: Props) => {
+  const patientByBed = useMemo(
+    () =>
+      new Map(
+        inpatients.map((patient) => [
+          normalizeBed(patient.bed),
+          patient,
+        ])
+      ),
+    [inpatients]
+  );
 
-  // Fast lookup by bed
-  const patientByBed = useMemo(() => {
-    const map = new Map<string, Inpatient>();
-    for (const p of inpatients) map.set(p.bed, p);
-    return map;
-  }, [inpatients]);
+  const beds = useMemo(
+    () =>
+      showEmptyBeds
+        ? allBeds
+        : [...new Set(inpatients.map((p) => p.bed))],
+    [showEmptyBeds, allBeds, inpatients]
+  );
 
   return (
     <div className="overflow-auto rounded border border-gray-300 bg-white">
       <table className="min-w-full border-collapse text-xs">
         <thead className="bg-gray-100">
           <tr>
-            <th className="border border-gray-200 px-2 py-1 text-left">Bed / Room</th>
-            <th className="border border-gray-200 px-2 py-1 text-left">National ID</th>
-            <th className="border border-gray-200 px-2 py-1 text-left">Name</th>
-            <th className="border border-gray-200 px-2 py-1 text-center">EWS</th>
-            <th className="border border-gray-200 px-2 py-1 text-left">Ward</th>
-            <th className="border border-gray-200 px-2 py-1 text-left">Start date</th>
-            <th className="border border-gray-200 px-2 py-1 text-left">Technical unit</th>
-            <th className="border border-gray-200 px-2 py-1 text-left">Team</th>
-            <th className="border border-gray-200 px-2 py-1 text-left">Absence</th>
-            <th className="border border-gray-200 px-2 py-1 text-left">Activity</th>
-            <th className="border border-gray-200 px-2 py-1 text-center">Coordination</th>
-            <th className="border border-gray-200 px-2 py-1 text-left">Planned discharge</th>
+            {headers.map((title) => (
+              <th
+                key={title}
+                className="border border-gray-200 px-2 py-1 text-left"
+              >
+                {title}
+              </th>
+            ))}
           </tr>
         </thead>
 
         <tbody>
-          {bedsToRender.map((bedCode, idx) => {
-            const patient = patientByBed.get(bedCode) ?? null;
+          {beds.map((bedCode, index) => {
+            const patient = patientByBed.get(normalizeBed(bedCode));
+            const rowClass = getRowClass(index);
 
-            const rowBaseClasses =
-              (idx % 2 === 0 ? "bg-white" : "bg-gray-50") + " hover:bg-blue-50";
-
-            // Empty bed row
             if (!patient) {
               return (
-                <tr key={bedCode} className={rowBaseClasses}>
-                  <td className="border border-gray-200 px-2 py-1">{bedCode}</td>
+                <tr key={bedCode} className={rowClass}>
+                  <td className="border px-2 py-1">{bedCode}</td>
                   <td
-                    className="border border-gray-200 px-2 py-1 text-gray-400 italic"
-                    colSpan={11}
+                    colSpan={9}
+                    className="border px-2 py-1 italic text-gray-400"
                   >
                     Empty bed
                   </td>
@@ -129,23 +144,21 @@ export const ActiveContactsTable: React.FC<Props> = ({
               );
             }
 
-            const patientPath = `/patients/${encodeURIComponent(patient.nationalId)}`;
-            const hasPlannedDischarge = Boolean(patient.plannedDischarge);
-            const hasCoordinationCase = Boolean(patient.coordination?.hasCase);
+            const patientPath = getPatientPath(patient);
 
             return (
               <tr
                 key={bedCode}
-                className={rowBaseClasses + " cursor-pointer transition-colors duration-75"}
+                className={`${rowClass} cursor-pointer`}
                 onClick={() => onRowClick?.(patient)}
                 onContextMenu={(event) => {
                   event.preventDefault();
                   onRowContextMenu?.(event, patient);
                 }}
               >
-                <td className="border border-gray-200 px-2 py-1">{patient.bed}</td>
+                <td className="border px-2 py-1">{patient.bed}</td>
 
-                <td className="border border-gray-200 px-2 py-1">
+                <td className="border px-2 py-1">
                   <Link
                     to={patientPath}
                     className="text-blue-700 hover:underline"
@@ -155,7 +168,7 @@ export const ActiveContactsTable: React.FC<Props> = ({
                   </Link>
                 </td>
 
-                <td className="border border-gray-200 px-2 py-1">
+                <td className="border px-2 py-1">
                   <Link
                     to={patientPath}
                     className="text-blue-700 hover:underline"
@@ -165,13 +178,12 @@ export const ActiveContactsTable: React.FC<Props> = ({
                   </Link>
                 </td>
 
-                <td className="border border-gray-200 px-2 py-1 text-center">
+                <td className="border px-2 py-1 text-center">
                   {patient.ews !== undefined ? (
                     <span
-                      className={
-                        "inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded text-[11px] font-semibold " +
-                        getEwsPillClass(patient.ews)
-                      }
+                      className={`inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded text-[11px] font-semibold ${getEwsClass(
+                        patient.ews
+                      )}`}
                     >
                       {patient.ews}
                     </span>
@@ -180,19 +192,15 @@ export const ActiveContactsTable: React.FC<Props> = ({
                   )}
                 </td>
 
-                <td className="border border-gray-200 px-2 py-1">{patient.ward}</td>
-                <td className="border border-gray-200 px-2 py-1">{patient.startDate}</td>
-                <td className="border border-gray-200 px-2 py-1">{patient.technicalUnit || ""}</td>
-                <td className="border border-gray-200 px-2 py-1">{patient.team}</td>
-                <td className="border border-gray-200 px-2 py-1">{patient.absence || ""}</td>
-                <td className="border border-gray-200 px-2 py-1">{patient.activity || ""}</td>
+                <td className="border px-2 py-1">{patient.ward}</td>
+                <td className="border px-2 py-1">{patient.startDate}</td>
+                <td className="border px-2 py-1">{patient.team}</td>
 
-                {/* Coordination */}
-                <td className="border border-gray-200 px-2 py-1 text-center">
-                  <Tooltip title={hasCoordinationCase ? "Open coordination" : "Create coordination"}>
+                <td className="border px-2 py-1 text-center">
+                  <Tooltip title="Coordination">
                     <button
                       type="button"
-                      className="inline-flex items-center justify-center rounded p-1 hover:bg-blue-50"
+                      className="rounded p-1 hover:bg-blue-50"
                       onClick={(e) => {
                         e.stopPropagation();
                         onOpenCoordination?.(patient);
@@ -200,24 +208,45 @@ export const ActiveContactsTable: React.FC<Props> = ({
                     >
                       <HubIcon
                         fontSize="small"
-                        className={hasCoordinationCase ? "text-blue-700" : "text-gray-400"}
+                        className={
+                          patient.coordination?.hasCase
+                            ? "text-blue-700"
+                            : "text-gray-400"
+                        }
                       />
                     </button>
                   </Tooltip>
                 </td>
 
-                {/* Planned discharge */}
-                <td className="border border-gray-200 px-2 py-1">
-                  {hasPlannedDischarge ? (
+                <td className="border px-2 py-1">
+                  {patient.plannedDischarge ? (
                     <span className="inline-flex items-center gap-1">
-                      <span>{patient.plannedDischarge!.dateTime}</span>
-                      {dischargeStatusIcon(patient.plannedDischarge?.status)}
+                      {formatDateTime(
+                        patient.plannedDischarge.dateTime
+                      )}
+                      {renderDischargeIcon(
+                        patient.plannedDischarge.status
+                      )}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-gray-400">
                       <WarningAmberIcon fontSize="small" />
-                      <span>No plan</span>
+                      No plan
                     </span>
+                  )}
+                </td>
+
+                <td className="border px-2 py-1">
+                  {patient.plannedTransfer ? (
+                    <span className="inline-flex items-center gap-1 text-blue-700">
+                      <CompareArrowsIcon fontSize="small" />
+                      {formatDateTime(
+                        patient.plannedTransfer.dateTime
+                      )}{" "}
+                      • {patient.plannedTransfer.unit}
+                    </span>
+                  ) : (
+                    "-"
                   )}
                 </td>
               </tr>

@@ -8,15 +8,12 @@ import type {
   PresentationMode,
 } from "../../../features/medications/types";
 
-
-
 import { getPrescriptionStatus } from "./prescription.utils";
 
 /* -------------------------------------------------------------------------- */
-/* UI-only helpers                                                            */
+/* UI Helpers                                                                 */
 /* -------------------------------------------------------------------------- */
 
-/** Maps internal status → human readable label */
 const STATUS_LABEL: Record<PrescriptionStatus, string> = {
   active: "Active",
   notStarted: "Not started",
@@ -34,7 +31,7 @@ export function PrescriptionOverviewView({
   >("all");
 
   /* ------------------------------------------------------------------------ */
-  /* Derived rows                                                             */
+  /* Derived Rows                                                             */
   /* ------------------------------------------------------------------------ */
 
   const rows = useMemo<PrescriptionRow[]>(() => {
@@ -51,26 +48,30 @@ export function PrescriptionOverviewView({
     );
 
     if (filter === "active") {
-      return flat.filter((r) => r.status === "active");
+      return flat.filter((row) => row.status === "active");
     }
 
     if (filter === "notStarted") {
-      return flat.filter((r) => r.status === "notStarted");
+      return flat.filter((row) => row.status === "notStarted");
     }
 
     return flat;
   }, [groups, filter]);
 
   /* ------------------------------------------------------------------------ */
-  /* Totals (summary counts)                                                   */
+  /* Totals                                                                   */
   /* ------------------------------------------------------------------------ */
 
   const totals = useMemo(() => {
-    const all = groups.reduce((sum, g) => sum + g.items.length, 0);
+    const all = groups.reduce(
+      (sum, group) => sum + group.items.length,
+      0
+    );
 
     const active = groups.reduce(
-      (sum, g) =>
-        sum + g.items.filter((m) => Boolean(m.startDate)).length,
+      (sum, group) =>
+        sum +
+        group.items.filter((med) => Boolean(med.startDate)).length,
       0
     );
 
@@ -87,71 +88,64 @@ export function PrescriptionOverviewView({
 
   return (
     <div className="h-full p-3">
-      {/* Top summary */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm font-semibold text-gray-900">
-          Prescription overview
+      <div className="h-full rounded border border-gray-300 bg-white overflow-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-200 px-3 py-3">
+          <div className="text-lg font-semibold text-gray-900">
+            Prescription overview
+          </div>
+
+          <div className="inline-flex overflow-hidden rounded border border-gray-300 bg-white text-xs">
+            <button
+              type="button"
+              onClick={() => setFilter("all")}
+              className={
+                "px-3 py-1.5 " +
+                (filter === "all"
+                  ? "bg-gray-100 font-medium text-gray-900"
+                  : "text-gray-700 hover:bg-gray-50")
+              }
+            >
+              All ({totals.all})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilter("active")}
+              className={
+                "px-3 py-1.5 border-l border-gray-300 " +
+                (filter === "active"
+                  ? "bg-gray-100 font-medium text-gray-900"
+                  : "text-gray-700 hover:bg-gray-50")
+              }
+            >
+              Active ({totals.active})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilter("notStarted")}
+              className={
+                "px-3 py-1.5 border-l border-gray-300 " +
+                (filter === "notStarted"
+                  ? "bg-gray-100 font-medium text-gray-900"
+                  : "text-gray-700 hover:bg-gray-50")
+              }
+            >
+              Not started ({totals.notStarted})
+            </button>
+          </div>
         </div>
 
-        <div className="inline-flex overflow-hidden rounded border border-gray-300 bg-white text-[12px]">
-          <button
-            className={
-              "px-3 py-1 " +
-              (filter === "all"
-                ? "bg-gray-100 font-medium"
-                : "hover:bg-gray-50")
-            }
-            onClick={() => setFilter("all")}
-          >
-            All ({totals.all})
-          </button>
-
-          <button
-            className={
-              "px-3 py-1 " +
-              (filter === "active"
-                ? "bg-gray-100 font-medium"
-                : "hover:bg-gray-50")
-            }
-            onClick={() => setFilter("active")}
-          >
-            Active ({totals.active})
-          </button>
-
-          <button
-            className={
-              "px-3 py-1 " +
-              (filter === "notStarted"
-                ? "bg-gray-100 font-medium"
-                : "hover:bg-gray-50")
-            }
-            onClick={() => setFilter("notStarted")}
-          >
-            Not started ({totals.notStarted})
-          </button>
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="h-[470px] overflow-auto rounded border border-gray-200">
-        <table className="w-full border-collapse text-[11px]">
-          <thead className="sticky top-0 z-10 bg-gray-50">
-            <tr className="text-gray-600">
-              <th className="border-b border-gray-200 px-2 py-1 text-left font-normal">
-                Medication
-              </th>
-              <th className="border-b border-gray-200 px-2 py-1 text-left font-normal">
-                Dosing
-              </th>
-              <th className="border-b border-gray-200 px-2 py-1 text-left font-normal">
-                Group
-              </th>
-              <th className="w-28 border-b border-gray-200 px-2 py-1 text-left font-normal">
-                Start
-              </th>
-              <th className="w-24 border-b border-gray-200 px-2 py-1 text-left font-normal">
-                Status
-              </th>
+        {/* Table */}
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 z-10 bg-gray-100 text-left">
+            <tr className="text-gray-700">
+              <th className="px-2 py-2 font-semibold">Medication</th>
+              <th className="px-2 py-2 font-semibold">Dosing</th>
+              <th className="px-2 py-2 font-semibold">Group</th>
+              <th className="w-32 px-2 py-2 font-semibold">Start</th>
+              <th className="w-32 px-2 py-2 font-semibold">Status</th>
             </tr>
           </thead>
 
@@ -159,9 +153,10 @@ export function PrescriptionOverviewView({
             {rows.map((row) => (
               <tr
                 key={row.id}
-                className="border-b border-gray-100 bg-white"
+                className="border-t border-gray-200 hover:bg-gray-50"
               >
-                <td className="px-2 py-1">
+                {/* Medication */}
+                <td className="px-2 py-2">
                   <div className="font-medium text-gray-900">
                     {row.name}
                     {presentation === "large" && row.strength
@@ -170,24 +165,28 @@ export function PrescriptionOverviewView({
                   </div>
                 </td>
 
-                <td className="px-2 py-1 text-gray-700">
-                  {row.dosingText}
+                {/* Dosing */}
+                <td className="px-2 py-2 text-gray-700">
+                  {row.dosingText || "—"}
                 </td>
 
-                <td className="px-2 py-1 text-gray-600">
+                {/* Group */}
+                <td className="px-2 py-2 text-gray-600">
                   {row.groupTitle}
                 </td>
 
-                <td className="px-2 py-1 text-gray-600">
-                  {row.startDate ?? "—"}
+                {/* Start */}
+                <td className="px-2 py-2 text-gray-600">
+                  {row.startDate || "—"}
                 </td>
 
-                <td className="px-2 py-1">
+                {/* Status */}
+                <td className="px-2 py-2">
                   <span
                     className={
-                      "rounded px-2 py-0.5 text-[10px] " +
+                      "inline-flex rounded px-2 py-0.5 text-xs font-medium " +
                       (row.status === "active"
-                        ? "bg-green-50 text-green-700"
+                        ? "bg-green-100 text-green-800"
                         : "bg-gray-100 text-gray-600")
                     }
                   >
@@ -197,11 +196,12 @@ export function PrescriptionOverviewView({
               </tr>
             ))}
 
+            {/* Empty State */}
             {rows.length === 0 && (
               <tr>
                 <td
                   colSpan={5}
-                  className="px-3 py-6 text-sm text-gray-500"
+                  className="px-4 py-8 text-center text-sm text-gray-500"
                 >
                   No prescriptions match the current filter.
                 </td>

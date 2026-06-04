@@ -1,22 +1,23 @@
 // src/components/journal/NotesArea.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
-import { NoteCard } from "./NoteCard";
-import type { JournalNote } from "../../features/journal/types";
 
-// NEW:
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Menu, MenuItem } from "@mui/material";
+
+import { NoteCard } from "./NoteCard";
+
 import { VoidNoteDialog } from "../../features/journal/dialogs/VoidNoteDialog";
 import { DeleteNoteDialog } from "../../features/journal/dialogs/DeleteNoteDialog";
+
+import type { JournalNote } from "../../features/journal/types";
 
 type Props = {
   notes: JournalNote[];
   selectedNoteId: string | null;
-  onNewNote: () => void;
 
+  onNewNote: () => void;
   onSelectNote: (id: string) => void;
   onOpenNote: (id: string) => void;
 
-  // NEW actions from hook:
   onVoidNote: (id: string, reason: string) => void;
   onDeleteNote: (id: string) => void;
   onSignNote: (id: string) => void;
@@ -30,47 +31,68 @@ export function NotesArea({
   onOpenNote,
   onVoidNote,
   onDeleteNote,
-  onSignNote
+  onSignNote,
 }: Props) {
-  const mapRef = useRef<Record<string, HTMLDivElement | null>>({});
+  const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const selected = useMemo(
-    () => (selectedNoteId ? notes.find((n) => n.id === selectedNoteId) : null),
-    [notes, selectedNoteId]
-  );
-
-  useEffect(() => {
-    if (!selectedNoteId) return;
-    const el = mapRef.current[selectedNoteId];
-    el?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [selectedNoteId]);
-
-  // NEW: context menu state
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [menuNoteId, setMenuNoteId] = useState<string | null>(null);
 
-  // NEW: dialogs
-  const [voidOpen, setVoidOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isVoidOpen, setIsVoidOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+
+  /* ---------------- Derived ---------------- */
+  const selectedNote = useMemo(
+    () =>
+      selectedNoteId
+        ? notes.find((note) => note.id === selectedNoteId) ?? null
+        : null,
+    [notes, selectedNoteId]
+  );
 
   const menuNote = useMemo(
-    () => (menuNoteId ? notes.find((n) => n.id === menuNoteId) ?? null : null),
+    () =>
+      menuNoteId
+        ? notes.find((note) => note.id === menuNoteId) ?? null
+        : null,
     [notes, menuNoteId]
   );
 
-  const closeMenu = () => {
-    setMenuAnchor(null);
-    setMenuNoteId(null);
-  };
+  /* ---------------- Auto Scroll ---------------- */
+  useEffect(() => {
+    if (!selectedNoteId) return;
 
-  const canVoid = (n: JournalNote) => n.status !== "Voided";
-  const canDelete = (n: JournalNote) => n.status !== "Signed"; // safe rule
-  const canSign = (n: JournalNote) => n.status === "Draft";
+    itemRefs.current[selectedNoteId]?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, [selectedNoteId]);
+
+  /* ---------------- Helpers ---------------- */
+  function openMenu(id: string, anchor: HTMLElement) {
+    setMenuNoteId(id);
+    setMenuAnchor(anchor);
+  }
+
+  function closeMenu() {
+    setMenuAnchor(null);
+  }
+
+  function resetDialogs() {
+    setIsVoidOpen(false);
+    setIsDeleteOpen(false);
+    setMenuNoteId(null);
+  }
+
+  const canSign = (note: JournalNote) => note.status === "Draft";
+  const canVoid = (note: JournalNote) => note.status !== "Voided";
+  const canDelete = (note: JournalNote) => note.status !== "Signed";
 
   return (
     <div className="min-h-0 flex flex-col">
+      {/* Header */}
       <div className="px-3 py-2 flex items-center justify-between">
-        <div className="text-sm font-semibold">Notes area</div>
+        <h2 className="text-sm font-semibold">Notes area</h2>
 
         <button
           onClick={onNewNote}
@@ -80,22 +102,27 @@ export function NotesArea({
         </button>
       </div>
 
+      {/* Status */}
       <div className="px-3 pb-2 text-sm text-gray-600">
-        {selected ? (
-          <span>
-            Showing: <span className="font-medium text-gray-800">{selected.title}</span>
-          </span>
+        {selectedNote ? (
+          <>
+            Showing:{" "}
+            <span className="font-medium text-gray-800">
+              {selectedNote.title}
+            </span>
+          </>
         ) : (
           "No note selected."
         )}
       </div>
 
+      {/* Notes List */}
       <div className="px-3 pb-3 overflow-auto min-h-0 space-y-3">
         {notes.map((note) => (
           <div
             key={note.id}
             ref={(node) => {
-              mapRef.current[note.id] = node;
+              itemRefs.current[note.id] = node;
             }}
           >
             <NoteCard
@@ -103,16 +130,13 @@ export function NotesArea({
               isSelected={note.id === selectedNoteId}
               onSelect={onSelectNote}
               onOpen={onOpenNote}
-              onOpenMenu={(id, anchor) => {
-                setMenuNoteId(id);
-                setMenuAnchor(anchor);
-              }}
+              onOpenMenu={openMenu}
             />
           </div>
         ))}
-
       </div>
-      {/* Right-click menu */}
+
+      {/* Context Menu */}
       <Menu
         anchorEl={menuAnchor}
         open={Boolean(menuAnchor)}
@@ -123,15 +147,17 @@ export function NotesArea({
           onClick={() => {
             if (menuNoteId) onSignNote(menuNoteId);
             closeMenu();
+            setMenuNoteId(null);
           }}
         >
           Sign (Signera)
         </MenuItem>
+
         <MenuItem
           disabled={!menuNote || !canVoid(menuNote)}
           onClick={() => {
             closeMenu();
-            setVoidOpen(true);
+            setIsVoidOpen(true);
           }}
         >
           Cancel (Makulera)
@@ -141,32 +167,38 @@ export function NotesArea({
           disabled={!menuNote || !canDelete(menuNote)}
           onClick={() => {
             closeMenu();
-            setDeleteOpen(true);
+            setIsDeleteOpen(true);
           }}
         >
           Delete (Radera)
         </MenuItem>
       </Menu>
 
-      {/* Void dialog */}
+      {/* Void Dialog */}
       <VoidNoteDialog
-        open={voidOpen}
+        open={isVoidOpen}
         noteTitle={menuNote?.title}
-        onClose={() => setVoidOpen(false)}
+        onClose={resetDialogs}
         onConfirm={(reason) => {
-          if (menuNoteId) onVoidNote(menuNoteId, reason);
-          setVoidOpen(false);
+          if (menuNoteId) {
+            onVoidNote(menuNoteId, reason);
+          }
+
+          resetDialogs();
         }}
       />
 
-      {/* Delete dialog */}
+      {/* Delete Dialog */}
       <DeleteNoteDialog
-        open={deleteOpen}
+        open={isDeleteOpen}
         noteTitle={menuNote?.title}
-        onClose={() => setDeleteOpen(false)}
+        onClose={resetDialogs}
         onConfirm={() => {
-          if (menuNoteId) onDeleteNote(menuNoteId);
-          setDeleteOpen(false);
+          if (menuNoteId) {
+            onDeleteNote(menuNoteId);
+          }
+
+          resetDialogs();
         }}
       />
     </div>
