@@ -1,3 +1,4 @@
+//backend/src/routes/index.ts
 import { Router } from "express";
 
 import patientRoutes from "../modules/patient/patient.routes.js";
@@ -20,12 +21,11 @@ import teamRoutes from "../modules/team/team.routes.js";
 import consentRoutes from "../modules/consent/consent.routes.js";
 import medicationDoseRoutes from "../modules/medication-dose/medication-dose.routes.js";
 import nutritionProductRoutes from "../modules/nutrition-product/nutrition-product.routes.js";
-import samplesRoutes from "../modules/sampling/samples.routes.js";
+import samplesRoutes from "../modules/sampling/sampling.routes.js";
 
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 
 const router = Router();
-router.use("/inpatients", inpatientRoutes);
 
 //
 // 🔓 PUBLIC ROUTES
@@ -39,6 +39,7 @@ router.use("/units", unitRoutes);
 //
 router.use(authMiddleware);
 
+router.use("/inpatients", inpatientRoutes);
 router.use("/patients", patientRoutes);
 router.use("/encounters", encounterRoutes);
 router.use("/clinical-parameters", clinicalParameterRoutes);

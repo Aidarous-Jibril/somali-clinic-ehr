@@ -23,12 +23,12 @@ router.get("/active", requireRoles(Roles.Doctor, Roles.Nurse), getActiveContacts
 router.get("/:stayId/log", requireRoles(Roles.Doctor, Roles.Nurse), getPatientLogHandler);
 router.get("/:stayId/coordination", requireRoles(Roles.Doctor, Roles.Nurse), getCoordinationHandler);
 
-router.post("/admit",requireRoles(Roles.Doctor, Roles.Nurse), admitPatientHandler);
+router.post("/admit",requireRoles(Roles.Doctor, ), admitPatientHandler);
 router.patch("/planned-discharge",requireRoles(Roles.Doctor, Roles.Nurse), savePlannedDischargeHandler);
 router.patch("/change-bed", requireRoles(Roles.Doctor, Roles.Nurse), changeBedHandler);
 router.put("/coordination", requireRoles(Roles.Doctor, Roles.Nurse), saveCoordinationHandler);
 router.post("/plan-transfer", requireRoles(Roles.Doctor, ), planTransferHandler);
-router.get("/transfers", requireRoles(Roles.Doctor, Roles.Nurse), getTransfersHandler);
+router.get("/transfers", requireRoles(Roles.Doctor, ), getTransfersHandler);
 router.patch("/transfers/reserve-bed", requireRoles(Roles.Doctor, Roles.Nurse), reserveBedHandler);
 router.post("/transfers/transfer-now", requireRoles(Roles.Doctor, ), transferNowHandler);
 router.patch("/end-care-contact", requireRoles(Roles.Doctor, ), endCareContactHandler);

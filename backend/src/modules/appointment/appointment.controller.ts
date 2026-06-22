@@ -63,7 +63,12 @@ export const arrivedAppointment = async (req: Request, res: Response) => {
 
   const appointment = await prisma.appointment.findUnique({ where: { id } });
 
-  if (!appointment) return res.status(404).json({ message: "Not found" });
+  if (!appointment) 
+    return res.status(404).json({ message: "Not found" });
+
+  if (appointment.clinicId !== req.user!.clinicId)
+    return res.status(403).json({ message: "Forbidden" });
+
   if (appointment.status !== "booked")
     return res.status(400).json({ message: "Must be booked first" });
 
@@ -77,7 +82,12 @@ export const startAppointment = async (req: Request, res: Response) => {
 
   const appointment = await prisma.appointment.findUnique({ where: { id } });
 
-  if (!appointment) return res.status(404).json({ message: "Not found" });
+  if (!appointment) 
+    return res.status(404).json({ message: "Not found" });
+
+  if (appointment.clinicId !== req.user!.clinicId)
+    return res.status(403).json({ message: "Forbidden" });
+
   if (appointment.status !== "arrived")
     return res.status(400).json({ message: "Patient must arrive first" });
 
@@ -91,7 +101,12 @@ export const completeAppointment = async (req: Request, res: Response) => {
 
   const appointment = await prisma.appointment.findUnique({ where: { id } });
 
-  if (!appointment) return res.status(404).json({ message: "Not found" });
+  if (!appointment) 
+    return res.status(404).json({ message: "Not found" });
+
+  if (appointment.clinicId !== req.user!.clinicId)
+    return res.status(403).json({ message: "Forbidden" });
+
   if (appointment.status !== "in_progress")
     return res.status(400).json({ message: "Must be in progress" });
 

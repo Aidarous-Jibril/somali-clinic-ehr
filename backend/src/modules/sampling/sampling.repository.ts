@@ -177,19 +177,56 @@ export const updateSample = (id: string, data: any) => {
 };
 
 export const createTrackingEvent = (data: any) => {
-  return prisma.sampleTrackingEvent.create({
-    data,
-  });
+  return prisma.sampleTrackingEvent.create({ data, });
 };
 
 export const findSampleByOrderId = ( orderId: string ) => {
   return prisma.sample.findFirst({
+    where: { orderId, },
+
+    orderBy: { createdAt: "desc",},
+  });
+};
+
+// Ownership protection
+export const getSampleByIdForClinic = ( id: string, clinicId: string ) => {
+  return prisma.sample.findFirst({
     where: {
-      orderId,
+      id,
+      order: {
+        clinicId,
+      },
     },
 
-    orderBy: {
-      createdAt: "desc",
+    include: {
+      order: true,
+      patient: true,
+
+      collectedByAccount: {
+        include: {
+          person: true,
+        },
+      },
+
+      processedByAccount: {
+        include: {
+          person: true,
+        },
+      },
+
+      trackingEvents: {
+        include: {
+          performedByAccount: {
+            include: {
+              person: true,
+            },
+          },
+        },
+
+        orderBy: {
+          createdAt: "desc",
+        },
+      },
     },
   });
 };

@@ -4,8 +4,36 @@ import * as samplingRepo from "../sampling/sampling.repository.js";
 import { prisma } from "../../config/prisma.js";
 import * as labResultRepo from "../labResult/labResult.repository.js";
 
-
 export const createOrder = async (input: any) => {
+  const encounter = await prisma.encounter.findFirst({
+    where: {
+      id: input.encounterId,
+      clinicId: input.clinicId,
+    },
+  });
+
+  if (!encounter) throw new Error("Encounter not found");
+
+  const patient = await prisma.patient.findFirst({
+    where: {
+      id: input.patientId,
+      clinicId: input.clinicId,
+    },
+  });
+
+  if (!patient) throw new Error("Patient not found");
+
+  if (input.performerUnitId) {
+    const unit = await prisma.unit.findFirst({
+      where: {
+        id: input.performerUnitId,
+        clinicId: input.clinicId,
+      },
+    });
+
+    if (!unit) throw new Error("Unit not found");
+  }
+
   const order = await repo.createOrder({
     clinicId: input.clinicId,
     patientId: input.patientId,
@@ -17,7 +45,7 @@ export const createOrder = async (input: any) => {
     orderedByAccountId: input.orderedByAccountId,
   });
 
-  // AUTO SAMPLE CREATION
+  // auto sample creation
   if (
     order.category === "chemistry" ||
     order.category === "microbiology"
@@ -36,6 +64,7 @@ export const createOrder = async (input: any) => {
       details: "Sample auto-registered from order",
     });
   }
+
   return order;
 };
 
@@ -47,7 +76,12 @@ export const listOrdersByEncounter = (encounterId: string) => {
   return repo.findOrdersByEncounter(encounterId);
 };
 
-export const listOrdersByPatient = (patientId: string) => {
+export const listOrdersByPatient = async ( patientId: string, clinicId: string ) => {
+  const patient = await repo.findPatientById( patientId, clinicId);
+
+  if (!patient)
+    throw new Error("Patient not found");
+
   return repo.findOrdersByPatient(patientId);
 };
 
@@ -55,15 +89,14 @@ export const listLabOrders = (clinicId: string) => {
   return repo.findLabOrders(clinicId);
 };
 
-// LIFECYCLE
+// ordered → in_progress
 export const startOrder = (id: string) =>
-  repo.updateOrder(id, {
-    status: "in_progress",
-  });
+  repo.updateOrder(id, { status: "in_progress",});
 
-
+// in_progress → resulted
 export const resultOrder = async (
   id: string,
+  clinicId: string,
   accountId: string,
   input: {
     value: string;
@@ -72,41 +105,39 @@ export const resultOrder = async (
     comment?: string;
   }
 ) => {
-
-  // 1. FIND ORDER
+  // 1. find order
   const order = await repo.findOrderById(id);
 
-  if (!order) {
+  if (!order)
     throw new Error("Order not found");
-  }
 
-  // 2. FIND SAMPLE
+  // clinic isolation
+  if (order.clinicId !== clinicId) 
+    throw new Error("Forbidden: different clinic");
+
+  // workflow validation
+  if (order.status !== "in_progress")
+    throw new Error("Order must be in progress first");
+
+  // 2. find sample
   const sample = await samplingRepo.findSampleByOrderId(id);
 
-  if (!sample) {
+  if (!sample) 
     throw new Error("Sample not found");
-  }
 
-  // 3. VALIDATE SAMPLE STATUS
-  if (sample.status !== "completed") {
-    throw new Error(
-      "Cannot result order before sample completion"
-    );
-  }
-
-  // 4. PREVENT DUPLICATE RESULTS
+  // 3. validate sample status
+  if (sample.status !== "completed") 
+    throw new Error( "Cannot result order before sample completion" );
+  
+  // 4. prevent duplicate results
   const existingResult = await labResultRepo.findResultByOrderId(id);
 
-  if (existingResult) {
-    throw new Error(
-      "Lab result already exists for this order"
-    );
-  }
+  if (existingResult) 
+    throw new Error(  "Lab result already exists for this order" );
+  
 
-  // 5. TRANSACTION
+  // 5. transaction
   return prisma.$transaction(async (tx) => {
-
-    // CREATE LAB RESULT
     const result = await tx.labResult.create({
       data: {
         clinicId: order.clinicId,
@@ -115,22 +146,18 @@ export const resultOrder = async (
         value: input.value,
         unit: input.unit,
         flag: input.flag,
-
         resultDate: new Date(),
       },
     });
 
-    // UPDATE ORDER
     const updatedOrder = await tx.order.update({
       where: { id },
-
       data: {
         status: "resulted",
         comment: input.comment,
         resultedAt: new Date(),
         resultedByAccountId: accountId,
       },
-
       include: {
         labResults: true,
       },
@@ -143,13 +170,15 @@ export const resultOrder = async (
   });
 };
 
+// resulted → reviewed
 export const reviewOrder = (id: string, accountId: string) =>
   repo.updateOrder(id, {
     status: "reviewed",
     reviewedAt: new Date(),
-    reviewedByAccountId: accountId, 
+    reviewedByAccountId: accountId,
   });
 
+// reviewed → completed
 export const completeOrder = (id: string) =>
   repo.updateOrder(id, {
     status: "completed",

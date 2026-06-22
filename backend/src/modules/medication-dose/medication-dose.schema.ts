@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 export const createMedicationDoseSchema = z.object({
-  scheduledDate: z.coerce.date(),
-  label: z.string().min(1),
+  scheduledDate: z.coerce.date({ message: "Scheduled date is required",}),
+  label: z.string().min(1, { message: "Dose label is required",}),
   tooltip: z.string().optional(),
   isPrn: z.boolean().optional().default(false),
 });

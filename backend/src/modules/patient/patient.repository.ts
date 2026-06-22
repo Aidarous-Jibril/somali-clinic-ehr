@@ -1,5 +1,3 @@
-// src/modules/patient/patient.repository.ts
-
 import { Gender } from "@prisma/client";
 import { prisma } from "../../config/prisma.js";
 
@@ -57,12 +55,7 @@ export const findDuplicatePatient = (params: {
       clinicId,
       isDeleted: false,
       OR: [
-        nationalId
-          ? {
-              nationalId,
-            }
-          : undefined,
-
+        nationalId ? { nationalId } : undefined,
         {
           firstName: {
             equals: firstName,
@@ -74,12 +67,7 @@ export const findDuplicatePatient = (params: {
           },
           dateOfBirth,
         },
-
-        phone
-          ? {
-              phone,
-            }
-          : undefined,
+        phone ? { phone } : undefined,
       ].filter(Boolean) as any,
     },
   });
@@ -89,10 +77,27 @@ export const findDuplicatePatient = (params: {
 /* Find By Id                         */
 /* ---------------------------------- */
 export const findPatientById = (patientId: string) => {
-  return prisma.patient.findUnique({
-    where: { id: patientId },
+  return prisma.patient.findFirst({
+    where: {
+      id: patientId,
+      isDeleted: false,
+    },
     include: {
       clinic: true,
+    },
+  });
+};
+
+/* ---------------------------------- */
+/* List All (SuperAdmin)              */
+/* ---------------------------------- */
+export const findAllPatients = () => {
+  return prisma.patient.findMany({
+    where: {
+      isDeleted: false,
+    },
+    orderBy: {
+      createdAt: "desc",
     },
   });
 };
@@ -106,17 +111,22 @@ export const findPatientsByClinic = (clinicId: string) => {
       clinicId,
       isDeleted: false,
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: {
+      createdAt: "desc",
+    },
   });
 };
 
 /* ---------------------------------- */
 /* Search                             */
 /* ---------------------------------- */
-export const searchPatients = (clinicId: string, q: string) => {
+export const searchPatients = (
+  q: string,
+  clinicId?: string
+) => {
   return prisma.patient.findMany({
     where: {
-      clinicId,
+      ...(clinicId && { clinicId }),
       isDeleted: false,
       OR: [
         { mrn: { contains: q, mode: "insensitive" } },
@@ -126,6 +136,48 @@ export const searchPatients = (clinicId: string, q: string) => {
       ],
     },
     take: 20,
-    orderBy: { createdAt: "desc" },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+};
+
+/* ---------------------------------- */
+/* Update Patient                     */
+/* ---------------------------------- */
+export const updatePatient = (
+  patientId: string,
+  data: Partial<{
+    firstName: string;
+    lastName: string;
+    gender: Gender;
+    dateOfBirth: Date;
+    phone?: string;
+    email?: string;
+    nationalId?: string;
+  }>
+) => {
+  return prisma.patient.update({
+    where: {
+      id: patientId,
+    },
+    data,
+  });
+};
+
+/* ---------------------------------- */
+/* Soft Delete                        */
+/* ---------------------------------- */
+export const softDeletePatient = (
+  patientId: string
+) => {
+  return prisma.patient.update({
+    where: {
+      id: patientId,
+    },
+    data: {
+      isDeleted: true,
+      deletedAt: new Date(),
+    },
   });
 };

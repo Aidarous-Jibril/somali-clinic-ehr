@@ -19,13 +19,13 @@ export const listByClinic = async ( req: Request, res: Response ) => {
 
     if (!clinicId) return res.status(400).json({ message: "clinicId param required", });
 
-    const units = await service.listUnitsByClinic( clinicId );
+    const units = await service.listUnitsByClinic( clinicId, req.user );
 
     res.json(units);
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-
-    res.status(500).json({ message: "Failed to fetch units", });
+    
+    res.status(400).json({ message: error.message, });
   }
 };
 
@@ -36,14 +36,12 @@ export const listUnitsByClinic = async ( req: Request, res: Response ) => {
 
     if (!clinicId)  return res.status(400).json({ message: "clinicId query param required", });
 
-    const units = await service.listUnitsByClinic( clinicId );
+    const units = await service.listUnitsByClinic( clinicId, req.user );
 
     res.json(units);
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
 
-    res.status(500).json({
-      message: "Failed to fetch units",
-    });
+    res.status(400).json({ message: error.message, });
   }
 };

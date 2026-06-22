@@ -9,7 +9,7 @@ const router = Router();
 
 router.post( "/", requireRoles( Roles.Doctor, Roles.Nurse ), validate(createVaccinationSchema), controller.createVaccination );
 
-router.get( "/patient/:patientId", requireRoles( Roles.Doctor, Roles.Nurse ), controller.listVaccinations );
+router.get( "/patient/:patientId", requireRoles( Roles.SuperAdmin, Roles.ClinicAdmin, Roles.Doctor, Roles.Nurse, Roles.Lab ), controller.listVaccinations );
 
 router.patch( "/:id/decline", requireRoles( Roles.Doctor, Roles.Nurse ), controller.declineVaccination );
 

@@ -4,27 +4,39 @@ import { CreateReferralInput } from "./referral.schema.js";
 import { ReferralStatus } from "@prisma/client";
 
 export const createReferral = async ( input: CreateReferralInput ) => {
-  const sourcePatient =
-    await prisma.patient.findUnique({
-      where: {
-        id: input.patientId,
-      },
-    });
+  const sourcePatient = await prisma.patient.findFirst({
+    where: {
+      id: input.patientId,
+      clinicId: input.fromClinicId,
+      isDeleted: false,
+    },
+  });
 
   if (!sourcePatient)  throw new Error( "Source patient not found" );
   
-  const toUnit = await prisma.unit.findUnique({
+  if (input.encounterId) {
+    const encounter = await prisma.encounter.findFirst({
       where: {
-        id: input.toUnitId,
+        id: input.encounterId,
+        patientId: sourcePatient.id,
+        clinicId: input.fromClinicId,
       },
+    });
+
+  if (!encounter) throw new Error("Invalid encounter"); }
+
+  if (input.toUnitId === input.fromUnitId)
+    throw new Error("Cannot refer to same unit");
+
+  const toUnit = await prisma.unit.findUnique({
+      where: { id: input.toUnitId, },
     });
 
   if (!toUnit) throw new Error( "Destination unit not found" );
 
   const targetClinicId = toUnit.clinicId;
 
-  let targetPatient =
-    await prisma.patient.findFirst({
+  let targetPatient = await prisma.patient.findFirst({
       where: {
         clinicId: targetClinicId,
 
@@ -62,11 +74,9 @@ export const createReferral = async ( input: CreateReferralInput ) => {
     });
 
   if (!targetPatient) {
-    const clinic = await prisma.clinic.update({
-        where: {
-          id: targetClinicId,
-        },
-
+    targetPatient = await prisma.$transaction(async (tx) => {
+      const clinic = await tx.clinic.update({
+        where: { id: targetClinicId },
         data: {
           mrnCounter: {
             increment: 1,
@@ -74,9 +84,9 @@ export const createReferral = async ( input: CreateReferralInput ) => {
         },
       });
 
-    const mrn = `${clinic.code}-${String( clinic.mrnCounter).padStart(6, "0")}`;
+      const mrn = `${clinic.code}-${String(clinic.mrnCounter).padStart(6, "0")}`;
 
-    targetPatient = await prisma.patient.create({
+      return tx.patient.create({
         data: {
           clinicId: targetClinicId,
           mrn,
@@ -89,7 +99,24 @@ export const createReferral = async ( input: CreateReferralInput ) => {
           nationalId: sourcePatient.nationalId,
         },
       });
+    });
   }
+    const existing = await prisma.referral.findFirst({
+      where: {
+        patientId: targetPatient.id,
+        toUnitId: input.toUnitId,
+        status: {
+          in: [
+            ReferralStatus.unassessed,
+            ReferralStatus.accepted,
+            ReferralStatus.in_progress,
+          ],
+        },
+      },
+  });
+
+  if (existing) 
+    throw new Error("Active referral already exists");
 
   return repo.createReferral({
     ...input,
@@ -97,7 +124,7 @@ export const createReferral = async ( input: CreateReferralInput ) => {
     patientId: targetPatient.id,
     sourcePatientId: sourcePatient.id,
     urgent: input.urgent ?? false,
-    hasAdditionalInfo: input.hasAdditionalInfo ??false,
+    hasAdditionalInfo: input.hasAdditionalInfo ?? false,
   });
 };
 

@@ -8,8 +8,10 @@ import { createClinicSchema } from "./clinic.schema.js";
 
 const router = Router();
 
-router.post( "/", authMiddleware, requireRoles(Roles.SuperAdmin), validate(createClinicSchema), controller.createClinic );
+// PUBLIC (for login dropdown)
+router.get("/public", controller.listClinics);
 
-router.get( "/", authMiddleware, controller.listClinics );
+// PROTECTED
+router.post( "/", authMiddleware, requireRoles(Roles.SuperAdmin), validate(createClinicSchema), controller.createClinic );
 
 export default router;

@@ -8,16 +8,7 @@ import { Roles } from "../../constants/roles.js";
 const router = Router();
 
 router.post( "/", requireRoles( Roles.Lab, Roles.Radiology ), validate(createLabResultSchema), controller.createLabResult );
-router.get(
-  "/patient/:patientId",
-  requireRoles(
-    Roles.Doctor,
-    Roles.Nurse,
-    Roles.Lab,
-    Roles.Radiology
-  ),
-  controller.listResultsByPatient
-);
+router.get( "/patient/:patientId", requireRoles( Roles.Doctor, Roles.Nurse, Roles.Lab, Roles.Radiology ), controller.listResultsByPatient );
 
 export default router;
 

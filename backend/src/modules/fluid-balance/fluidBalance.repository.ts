@@ -51,3 +51,60 @@ export const findByPatient = (patientId: string, clinicId: string) => {
     include: { details: true },
   });
 };
+
+export const findPatientById = (patientId: string) => {
+  return prisma.patient.findUnique({
+    where: { id: patientId },
+    select: {
+      id: true,
+      clinicId: true,
+    },
+  });
+};
+
+export const findById = (id: string) => {
+  return prisma.fluidBalanceEntry.findUnique({
+    where: { id },
+    include: { details: true },
+  });
+};
+
+export const updateFluidBalance = (
+  id: string,
+  data: {
+    measuredAt: Date;
+    label: string;
+    period: string;
+    intakeMl: number;
+    outputMl: number;
+    balanceMl: number;
+    details: {
+      oralMl: number;
+      oralKcal: number;
+      enteralMl: number;
+      enteralKcal: number;
+      urineMl: number;
+      bleedingMl: number;
+      faecesMl: number;
+      vomitingMl: number;
+    };
+  }
+) => {
+  return prisma.fluidBalanceEntry.update({
+    where: { id },
+    data: {
+      measuredAt: data.measuredAt,
+      label: data.label,
+      period: data.period,
+      intakeMl: data.intakeMl,
+      outputMl: data.outputMl,
+      balanceMl: data.balanceMl,
+      details: {
+        update: data.details,
+      },
+    },
+    include: {
+      details: true,
+    },
+  });
+};

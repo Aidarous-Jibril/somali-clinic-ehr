@@ -1,58 +1,152 @@
 import { Request, Response } from "express";
 import * as service from "./vaccination.service.js";
 
-export const createVaccination = async ( req: Request, res: Response ) => {
-  const vacc = await service.createVaccination({
+export const createVaccination = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const user = req.user;
+
+    if (!user)
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
+
+    const vacc = await service.createVaccination({
       ...req.body,
-
-      clinicId: req.user!.clinicId,
+      clinicId: user.clinicId,
       status: req.body.status ?? "active",
-      administeredByAccountId: req.user!.accountId,
-      administeredAt: req.body.administeredAt ? new Date( req.body.administeredAt ) : undefined, });
+      administeredByAccountId: user.accountId,
+      administeredAt: req.body.administeredAt
+        ? new Date(req.body.administeredAt)
+        : undefined,
+    });
 
-  return res.status(201).json(vacc);
+    res.status(201).json(vacc);
+  } catch (error: any) {
+    console.error(error);
+
+    res.status(error?.statusCode || 400).json({
+      message:
+        error?.message ||
+        "Failed to create vaccination",
+    });
+  }
 };
 
-export const listVaccinations = async ( req: Request, res: Response ) => {
-    const vaccs = await service.listVaccinations(
+export const listVaccinations = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const user = req.user;
+
+    if (!user)
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
+
+    const clinicId =
+      user.role === "SuperAdmin"
+        ? undefined
+        : user.clinicId;
+
+    const vaccs =
+      await service.listVaccinations(
         String(req.params.patientId),
-        req.user!.clinicId
+        clinicId
       );
 
-    const result = vaccs.map(
-      (v: any) => ({
-        id: v.id,
-        vaccineName: v.vaccineName,
-        dose: v.dose,
-        status: v.status,
-
-        administeredAt:
-          v.administeredAt,
-
-        administeredBy:
-          v.administeredByAccount
-            ? `${v.administeredByAccount.person.firstName} ${v.administeredByAccount.person.lastName}`
-            : null,
-      })
-    );
+    const result = vaccs.map((v: any) => ({
+      id: v.id,
+      vaccineName: v.vaccineName,
+      dose: v.dose,
+      status: v.status,
+      administeredAt: v.administeredAt,
+      administeredBy: v.administeredByAccount
+        ? `${v.administeredByAccount.person.firstName} ${v.administeredByAccount.person.lastName}`
+        : null,
+    }));
 
     res.json(result);
-  };
+  } catch (error: any) {
+    console.error(error);
 
-export const declineVaccination = async ( req: Request, res: Response ) => {
-    const vacc = await service.declineVaccination(
+    res.status(error?.statusCode || 400).json({
+      message:
+        error?.message ||
+        "Failed to fetch vaccinations",
+    });
+  }
+};
+
+export const declineVaccination = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const user = req.user;
+
+    if (!user)
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
+
+    const clinicId =
+      user.role === "SuperAdmin"
+        ? undefined
+        : user.clinicId;
+
+    const vacc =
+      await service.declineVaccination(
         String(req.params.id),
-        req.user!.clinicId
+        clinicId
       );
 
     res.json(vacc);
-  };
+  } catch (error: any) {
+    console.error(error);
 
-export const completeVaccination = async ( req: Request, res: Response ) => {
-    const vacc = await service.completeVaccination(
+    res.status(error?.statusCode || 400).json({
+      message:
+        error?.message ||
+        "Failed to decline vaccination",
+    });
+  }
+};
+
+export const completeVaccination = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const user = req.user;
+
+    if (!user)
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
+
+    const clinicId =
+      user.role === "SuperAdmin"
+        ? undefined
+        : user.clinicId;
+
+    const vacc =
+      await service.completeVaccination(
         String(req.params.id),
-        req.user!.clinicId
+        clinicId
       );
 
     res.json(vacc);
-  };
+  } catch (error: any) {
+    console.error(error);
+
+    res.status(error?.statusCode || 400).json({
+      message:
+        error?.message ||
+        "Failed to complete vaccination",
+    });
+  }
+};

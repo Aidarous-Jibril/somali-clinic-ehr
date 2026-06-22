@@ -33,16 +33,11 @@ export const listNotes = async ( req: Request, res: Response ) => {
 
 export const createNote = async ( req: Request, res: Response ) => {
   try {
-    const note = await service.createNote(
-      req.body,
-      req.user!
-    );
+    const note = await service.createNote( req.body, req.user!);
 
     res.status(201).json(note);
   } catch (err: any) {
-    res.status(400).json({
-      message: err.message,
-    });
+    res.status(400).json({ message: err.message, });
   }
 };
 
@@ -56,24 +51,17 @@ export const saveNote = async ( req: Request, res: Response ) => {
 
     res.json(note);
   } catch (err: any) {
-    res.status(400).json({
-      message: err.message,
-    });
+    res.status(400).json({ message: err.message, });
   }
 };
 
 export const signNote = async ( req: Request, res: Response ) => {
   try {
-    const note = await service.signNote(
-      String(req.params.id),
-      req.user!
-    );
+    const note = await service.signNote( String(req.params.id), req.user! );
 
     res.json(note);
   } catch (err: any) {
-    res.status(400).json({
-      message: err.message,
-    });
+    res.status(400).json({ message: err.message, });
   }
 };
 
@@ -87,26 +75,19 @@ export const voidNote = async ( req: Request, res: Response ) => {
 
     res.json(note);
   } catch (err: any) {
-    res.status(400).json({
-      message: err.message,
-    });
+    res.status(400).json({ message: err.message, });
   }
 };
 
 export const deleteNote = async ( req: Request, res: Response ) => {
   try {
-    await service.removeNote(
-      String(req.params.id),
-      req.user!
-    );
+    await service.removeNote( String(req.params.id), req.user!);
 
     res.json({
       success: true,
     });
   } catch (err: any) {
-    res.status(400).json({
-      message: err.message,
-    });
+    res.status(400).json({ message: err.message, });
   }
 };
 
@@ -121,23 +102,16 @@ export const closeTable = async ( req: Request, res: Response ) => {
 
     res.json(table);
   } catch (err: any) {
-    res.status(400).json({
-      message: err.message,
-    });
+    res.status(400).json({ message: err.message, });
   }
 };
 
 export const reopenTable = async ( req: Request, res: Response ) => {
   try {
-    const table = await service.reopenTable(
-      String(req.params.id),
-      req.user!
-    );
+    const table = await service.reopenTable( String(req.params.id), req.user!);
 
     res.json(table);
   } catch (err: any) {
-    res.status(400).json({
-      message: err.message,
-    });
+    res.status(400).json({ message: err.message,});
   }
 };

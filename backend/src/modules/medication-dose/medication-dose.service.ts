@@ -14,16 +14,30 @@ import {
 /**
  * CREATE
  */
-export const createDose = (
+export const createDose = async (
   medicationId: string,
-  input: CreateMedicationDoseInput
+  input: CreateMedicationDoseInput,
+  clinicId: string
 ) => {
+  const medication =
+    await repo.findMedicationById(
+      medicationId
+    );
+
+  if (!medication)
+    throw { statusCode: 404, message: "Medication not found" };
+
+  if (medication.clinicId !== clinicId) {
+    const error: any = new Error("Forbidden");
+    error.statusCode = 403;
+    throw error;
+  }
+
   return repo.createDose({
     medicationId,
     ...input,
   });
 };
-
 /**
  * Resolve a dose ID.
  *
@@ -31,7 +45,7 @@ export const createDose = (
  * 1. Real database IDs
  * 2. Fallback IDs from the UI
  */
-const resolveDose = async ( doseId: string ) => {
+const resolveDose = async ( doseId: string, clinicId: string ) => {
   const existing = await repo.findDoseById(doseId);
 
   if (existing) return existing;
@@ -86,23 +100,21 @@ const resolveDose = async ( doseId: string ) => {
 export const prepareDose = async ( doseId: string, performedByAccountId: string, clinicId: string ) => {
   const dose = await repo.findDoseWithMedication( doseId );
 
-  if (!dose) throw new Error("Dose not found");
+  if (!dose)
+    throw { statusCode: 404, message: "Dose not found" };
+
+  if (dose.status !== "planned")
+    throw { statusCode: 400, message: "Dose cannot be prepared" };
   
+  if ( dose.medication.clinicId !== clinicId ) 
+    throw { statusCode: 403, message: "Forbidden" };
 
-  if ( dose.medication.clinicId !== clinicId ) throw new Error("Forbidden");
-
-  await repo.updateDoseStatus(
-    dose.id,
-    MedicationDoseStatus.prepared
-  );
+  await repo.updateDoseStatus( dose.id, MedicationDoseStatus.prepared );
 
   return repo.createAdministration({
     medicationId: dose.medicationId,
     doseId: dose.id,
-
-    action:
-      MedicationAdministrationAction.prepare,
-
+    action: MedicationAdministrationAction.prepare,
     performedByAccountId,
   });
 };
@@ -113,20 +125,22 @@ export const prepareDose = async ( doseId: string, performedByAccountId: string,
 export const administerDose = async ( doseId: string, input: AdministerDoseInput, performedByAccountId: string, clinicId: string ) => {
   const dose = await repo.findDoseWithMedication( doseId );
 
-  if (!dose)  throw new Error("Dose not found");
-  if ( dose.medication.clinicId !== clinicId) throw new Error("Forbidden");
+  if (!dose)  
+    throw new Error("Dose not found");
 
-  await repo.updateDoseStatus(
-    dose.id,
-    MedicationDoseStatus.given
-  );
+  if ( dose.status !== "planned" && dose.status !== "prepared")
+    throw { statusCode: 400, message: "Dose cannot be administered",};
+
+  if ( dose.medication.clinicId !== clinicId)
+     throw new Error("Forbidden");
+
+  await repo.updateDoseStatus( dose.id, MedicationDoseStatus.given);
 
   return repo.createAdministration({
     medicationId: dose.medicationId,
     doseId: dose.id,
     action: MedicationAdministrationAction.administer,
     performedByAccountId,
-
     ...input,
   });
 };
@@ -137,23 +151,21 @@ export const administerDose = async ( doseId: string, input: AdministerDoseInput
 export const selfAdministerDose = async ( doseId: string, performedByAccountId: string, clinicId: string ) => {
   const dose = await repo.findDoseWithMedication( doseId );
 
-  if (!dose)  throw new Error("Dose not found");
+  if (!dose)  
+    throw new Error("Dose not found");
 
-  if ( dose.medication.clinicId !== clinicId ) throw new Error("Forbidden");
-  
+  if (dose.status !== "planned" && dose.status !== "prepared" )
+    throw { statusCode: 400, message: "Dose cannot be self-administered",};
 
-  await repo.updateDoseStatus(
-    dose.id,
-    MedicationDoseStatus.selfAdmin
-  );
+  if ( dose.medication.clinicId !== clinicId ) 
+    throw new Error("Forbidden");
+
+  await repo.updateDoseStatus( dose.id, MedicationDoseStatus.selfAdmin);
 
   return repo.createAdministration({
     medicationId: dose.medicationId,
     doseId: dose.id,
-
-    action:
-      MedicationAdministrationAction.selfAdminister,
-
+    action: MedicationAdministrationAction.selfAdminister,
     performedByAccountId,
   });
 };
@@ -164,9 +176,14 @@ export const selfAdministerDose = async ( doseId: string, performedByAccountId: 
 export const skipDose = async ( doseId: string, input: SkipDoseInput, performedByAccountId: string, clinicId: string ) => {
   const dose = await repo.findDoseWithMedication( doseId );
 
-  if (!dose) throw new Error("Dose not found");
+  if (!dose)
+    throw { statusCode: 404, message: "Dose not found" };
 
-  if ( dose.medication.clinicId !== clinicId ) throw new Error("Forbidden");
+  if (dose.status !== "planned" && dose.status !== "prepared" )
+      throw { statusCode: 400, message: "Dose cannot be skipped",};
+
+  if ( dose.medication.clinicId !== clinicId )
+    throw new Error("Forbidden");
   
 
   await repo.updateDoseStatus(
@@ -187,7 +204,18 @@ export const skipDose = async ( doseId: string, input: SkipDoseInput, performedB
 
 /**
  * LIST ADMINISTRATIONS
- */
-export const listAdministrations = ( medicationId: string ) => {
-  return repo.getAdministrationsByMedication(medicationId );
-};
+*/
+  export const listAdministrations = async ( medicationId: string, clinicId: string ) => {
+    const medication =
+      await repo.findMedicationById( medicationId );
+
+    if (!medication)
+      throw { statusCode: 404, message: "Medication not found" };
+
+    if (medication.clinicId !== clinicId)
+      throw { statusCode: 403, message: "Forbidden" };
+
+    return repo.getAdministrationsByMedication(
+      medicationId
+    );
+  };

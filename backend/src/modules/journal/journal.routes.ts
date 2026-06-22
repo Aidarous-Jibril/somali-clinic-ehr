@@ -17,9 +17,9 @@ router.post("/tables/:id/reopen", requireRoles( Roles.Doctor,  ), controller.reo
 router.get("/notes", requireRoles( Roles.Doctor, Roles.Nurse), controller.listNotes);
 router.post( "/notes", requireRoles( Roles.Doctor, Roles.Nurse), validate(createJournalNoteSchema), controller.createNote );
 
-router.patch("/notes/:id",requireRoles( Roles.Doctor, Roles.Nurse), controller.saveNote);
-router.post("/notes/:id/sign", requireRoles( Roles.Doctor, ), controller.signNote);
-router.post("/notes/:id/void", requireRoles( Roles.Doctor, ), controller.voidNote);
-router.delete("/notes/:id", requireRoles( Roles.Doctor,), controller.deleteNote);
+router.patch("/notes/:id",requireRoles( Roles.ClinicAdmin, Roles.Doctor, Roles.Nurse), controller.saveNote);
+router.post("/notes/:id/sign", requireRoles( Roles.ClinicAdmin, Roles.Doctor, ), controller.signNote);
+router.post("/notes/:id/void", requireRoles(  Roles.ClinicAdmin, Roles.Doctor, ), controller.voidNote);
+router.delete("/notes/:id", requireRoles( Roles.Doctor,  Roles.ClinicAdmin), controller.deleteNote);
 
 export default router;

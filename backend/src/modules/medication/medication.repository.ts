@@ -71,10 +71,23 @@ export const findMedicationsByPatient = ( patientId: string, clinicId: string ) 
   });
 };
 
-export const updateStatus = (
+export const updateStatus = async (
   medicationId: string,
+  clinicId: string,
   status: MedicationStatus
 ) => {
+    const medication = await prisma.medication.findFirst({
+    where: {
+      id: medicationId,
+      clinicId,
+    },
+  });
+
+  if (!medication) {
+    const error: any = new Error("Forbidden");
+    error.statusCode = 403;
+    throw error;
+  }
   return prisma.medication.update({
     where: { id: medicationId },
     data: {

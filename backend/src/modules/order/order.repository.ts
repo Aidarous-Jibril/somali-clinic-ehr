@@ -15,9 +15,7 @@ export const createOrder = (data: {
     data,
     include: {
       orderedByAccount: {
-        include: {
-          person: true,
-        },
+        include: {person: true, },
       },
 
       performerUnit: true,
@@ -32,9 +30,7 @@ export const updateOrder = (id: string, data: any) => {
     where: { id },
     data,
     include: {
-      orderedByAccount: {
-        include: { person: true },
-      },
+      orderedByAccount: { include: { person: true }, },
     },
   });
 };
@@ -123,6 +119,15 @@ export const findLabOrders = (clinicId: string) => {
 
     orderBy: {
       orderedAt: "asc",
+    },
+  });
+};
+
+export const findPatientById = (patientId: string, clinicId: string) => {
+  return prisma.patient.findFirst({
+    where: {
+      id: patientId,
+      clinicId,
     },
   });
 };

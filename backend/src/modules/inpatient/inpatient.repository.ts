@@ -4,30 +4,21 @@ import { prisma } from "../../config/prisma.js";
 export const findActiveContacts = async ( clinicId: string ) => {
   const [stays, referrals] = await Promise.all([
     prisma.inpatientStay.findMany({
-      where: {
-        clinicId,
-        dischargedAt: null,
-      },
+      where: { clinicId, dischargedAt: null, },
       include: {
         patient: true,
         unit: true,
         encounter: {
           include: {
             clinicalParameterEntries: {
-              where: {
-                name: "NEWS2",
-              },
-              orderBy: {
-                recordedAt: "desc",
-              },
+              where: { name: "NEWS2", },
+              orderBy: { recordedAt: "desc",},
               take: 1,
             },
           },
         },
       },
-      orderBy: {
-        bedCode: "asc",
-      },
+      orderBy: {bedCode: "asc", },
     }),
 
     prisma.referral.findMany({
@@ -37,9 +28,7 @@ export const findActiveContacts = async ( clinicId: string ) => {
           not: "completed",
         },
       },
-      include: {
-        toUnit: true,
-      },
+      include: { toUnit: true,},
     }),
   ]);
 
@@ -53,20 +42,16 @@ export const findActiveContacts = async ( clinicId: string ) => {
   }));
 };
 
-export const findStayById = ( stayId: string ) =>
-  prisma.inpatientStay.findUnique({
-    where: {
-      id: stayId,
-    },
+export const findStayById = ( stayId: string, clinicId: string) =>
+  prisma.inpatientStay.findFirst({
+    where: { id: stayId, clinicId },
     include: {
       patient: true,
       unit: true,
       encounter: {
         include: {
           clinicalParameterEntries: {
-            orderBy: {
-              recordedAt: "desc",
-            },
+            orderBy: { recordedAt: "desc", },
           },
         },
       },
@@ -75,30 +60,19 @@ export const findStayById = ( stayId: string ) =>
 
 export const updatePlannedDischarge = ( stayId: string, plannedDischargeAt: Date, status: string ) =>
   prisma.inpatientStay.update({
-    where: {
-      id: stayId,
-    },
-    data: {
-      plannedDischargeAt,
-      plannedDischargeStatus: status,
-    },
+    where: { id: stayId, },
+    data: { plannedDischargeAt, plannedDischargeStatus: status, },
   });
 
 export const updateBed = ( stayId: string, bedCode: string ) =>
   prisma.inpatientStay.update({
-    where: {
-      id: stayId,
-    },
-    data: {
-      bedCode,
-    },
+    where: { id: stayId, },
+    data: { bedCode, },
   });
 
 export const findCoordinationByStayId = ( stayId: string ) =>
   prisma.coordinationCase.findUnique({
-    where: {
-      stayId,
-    },
+    where: { stayId, },
   });
 
 export const upsertCoordination = (
@@ -149,23 +123,13 @@ export const createTransferReferral = async (
       clinicId: data.clinicId,
       patientId: data.patientId,
 
-      encounterId:
-        data.encounterId || undefined,
-
-      fromUnitId:
-        data.fromUnitId || undefined,
-
+      encounterId: data.encounterId || undefined,
+      fromUnitId: data.fromUnitId || undefined,
       toUnitId: toUnit?.id,
-
-      sentByAccountId:
-        data.sentByAccountId,
-
+      sentByAccountId: data.sentByAccountId,
       status: "unassessed",
-
       urgent: false,
-
-      hasAdditionalInfo:
-        !!data.reason,
+      hasAdditionalInfo: !!data.reason,
 
       details: JSON.stringify({
         type: "inpatient-transfer",
@@ -211,69 +175,62 @@ export const findTransfers = async ( clinicId: string, unitId?: string ) => {
       },
     });
 
-  return rows.map((r: any) => ({
-    id: r.id,
+  return rows.map((r: any) => {
+    let details: any  = {};
+    try {
+      details = r.details ? JSON.parse(r.details) : {};
+    } catch {
+      details = {};
+    }
 
-    direction:
-      r.fromUnitId === unitId
-        ? "outbound"
-        : "inbound",
-
-    type: "Same episode",
-
-    name:
-      `${r.patient.firstName} ${r.patient.lastName}`,
-
-    nationalId:
-      r.patient.nationalId || "",
-
-    fromFacility:
-      r.fromClinic?.name ||
-      r.clinic?.name ||
-      "",
-
-    toFacility:
-      r.clinic?.name || "",
-
-    fromUnit:
-      r.fromUnit?.name || "",
-
-    toUnit:
-      r.toUnit?.name || "",
-
-    transferTime:
-      r.createdAt.toISOString(),
-
-    bedReserved:
-      r.details?.startsWith("BED:")
-        ? r.details.replace("BED:", "")
-        : "",
-
-    status:
-      r.status === "completed"
-        ? "completedToday"
-        : "planned",
-  }));
+    return {
+      id: r.id,
+      direction: r.fromUnitId === unitId ? "outbound" : "inbound",
+      type: "Same episode",
+      name: `${r.patient.firstName} ${r.patient.lastName}`,
+      nationalId: r.patient.nationalId || "",
+      fromFacility: r.fromClinic?.name || r.clinic?.name || "",
+      toFacility: r.clinic?.name || "",
+      fromUnit: r.fromUnit?.name || "", 
+      toUnit: r.toUnit?.name || "",
+      transferTime: r.createdAt.toISOString(),
+      bedReserved: details.reservedBed || "",
+      status: r.status === "completed" ? "completedToday": "planned",
+    };
+  });
 };
 
-export const updateReferralBed = ( referralId: string, bedCode: string ) =>
-  prisma.referral.update({
-    where: {
-      id: referralId,
-    },
-    data: {
-      details: `BED:${bedCode}`,
-    },
-  });
+  export const updateReferralBed = async ( referralId: string, bedCode: string ) => {
+    const referral = await prisma.referral.findUnique({ where: { id: referralId }});
+
+    const occupied = await prisma.inpatientStay.findFirst({
+      where: {
+        clinicId: referral?.clinicId,
+        bedCode,
+        dischargedAt: null,
+      }
+    });
+
+    if (occupied)
+      throw new Error("Bed already occupied");
+
+    const existing = referral?.details ? JSON.parse(referral.details) : {};
+
+    return prisma.referral.update({
+      where: { id: referralId },
+      data: {
+        details: JSON.stringify({
+          ...existing,
+          reservedBed: bedCode
+        })
+      }
+    });
+  };
 
 export const completeTransfer = ( referralId: string ) =>
   prisma.referral.update({
-    where: {
-      id: referralId,
-    },
-    data: {
-      status: "completed",
-    },
+    where: { id: referralId,},
+    data: { status: "completed", },
     include: {
       patient: true,
       clinic: true,
@@ -282,26 +239,17 @@ export const completeTransfer = ( referralId: string ) =>
   });
 
 export const createStayFromReferral = ( referral: any ) => {
-  const bedCode =
-    referral.details?.startsWith("BED:")
-      ? referral.details.replace(
-          "BED:",
-          ""
-        )
-      : "Unassigned";
+    const details = referral.details ? JSON.parse(referral.details) : {};
+    const bedCode = details.reservedBed || "Unassigned";
 
   return prisma.inpatientStay.create({
     data: {
       clinicId: referral.clinicId,
       patientId: referral.patientId,
 
-      encounterId:
-        referral.encounterId,
-
+      encounterId: referral.encounterId, 
       unitId: referral.toUnitId,
-
       bedCode,
-
       team: "",
     },
   });
@@ -311,34 +259,22 @@ export const closeStay = async ( stayId: string ) => {
   const now = new Date();
 
   const stay =
-    await prisma.inpatientStay.findUnique({
-      where: {
-        id: stayId,
-      },
+    await prisma.inpatientStay.findFirst({
+      where: { id: stayId, },
     });
 
-  if (!stay) {
+  if (!stay) 
     throw new Error("Stay not found");
-  }
 
   await prisma.inpatientStay.update({
-    where: {
-      id: stayId,
-    },
-    data: {
-      dischargedAt: now,
-    },
+    where: { id: stayId, },
+    data: { dischargedAt: now, },
   });
 
   if (stay.encounterId) {
     await prisma.encounter.update({
-      where: {
-        id: stay.encounterId,
-      },
-      data: {
-        endedAt: now,
-        status: "closed",
-      },
+      where: { id: stay.encounterId, },
+      data: { endedAt: now, status: "closed", },
     });
   }
 
@@ -348,27 +284,16 @@ export const closeStay = async ( stayId: string ) => {
 };
 
 export const createAdmission = async ( data: any ) => {
-  const identifier = String(
-    data.nationalId || ""
-  ).trim();
-
-  const fullName = String(
-    data.name || ""
-  ).trim();
+  const identifier = String( data.nationalId || "" ).trim();
+  const fullName = String( data.name || "" ).trim();
 
   const parts = fullName
     .split(" ")
     .filter(Boolean);
 
-  const firstName =
-    parts.shift() || "Unknown";
-
-  const lastName =
-    parts.join(" ") || "Patient";
-
-  const admittedAt = new Date(
-    `${data.startDate}T${data.startTime}:00`
-  );
+  const firstName = parts.shift() || "Unknown";
+  const lastName = parts.join(" ") || "Patient";
+  const admittedAt = new Date( `${data.startDate}T${data.startTime}:00` );
 
   return prisma.$transaction(
     async (tx) => {
@@ -378,43 +303,33 @@ export const createAdmission = async ( data: any ) => {
         patient =
           await tx.patient.findFirst({
             where: {
-              clinicId:
-                data.clinicId,
               phone: identifier,
             },
           });
       }
 
       if (!patient && identifier) {
-        patient =
-          await tx.patient.findFirst({
-            where: {
-              clinicId:
-                data.clinicId,
-              nationalId:
-                identifier,
-            },
-          });
+        patient = await tx.patient.findFirst({
+          where: {
+            nationalId: identifier,
+          },
+        });
       }
 
       if (!patient) {
-        patient =
-          await tx.patient.findFirst({
-            where: {
-              clinicId:
-                data.clinicId,
-              firstName,
-              lastName,
-            },
-          });
+        patient = await tx.patient.findFirst({
+          where: {
+            clinicId: data.clinicId,
+            firstName,
+            lastName,
+          },
+        });
       }
 
       if (!patient) {
         const clinic =
           await tx.clinic.update({
-            where: {
-              id: data.clinicId,
-            },
+            where: { id: data.clinicId, },
             data: {
               mrnCounter: {
                 increment: 1,
@@ -426,9 +341,7 @@ export const createAdmission = async ( data: any ) => {
             },
           });
 
-        const mrn = `${clinic.code}-${String(
-          clinic.mrnCounter
-        ).padStart(5, "0")}`;
+        const mrn = `${clinic.code}-${String( clinic.mrnCounter ).padStart(5, "0")}`;
 
         patient =
           await tx.patient.create({
@@ -451,6 +364,17 @@ export const createAdmission = async ( data: any ) => {
           });
       }
 
+      const activeStay =
+        await tx.inpatientStay.findFirst({
+          where: {
+            patientId: patient.id,
+            dischargedAt: null,
+          },
+      });
+
+      if (activeStay)
+        throw new Error( "Patient already admitted");
+
       const unit =
         await tx.unit.findFirst({
           where: {
@@ -460,11 +384,8 @@ export const createAdmission = async ( data: any ) => {
           },
         });
 
-      if (!unit) {
-        throw new Error(
-          "Selected ward/unit not found"
-        );
-      }
+      if (!unit) 
+        throw new Error( "Selected ward/unit not found" );
 
       const existingBed =
         await tx.inpatientStay.findFirst({
@@ -477,11 +398,8 @@ export const createAdmission = async ( data: any ) => {
           },
         });
 
-      if (existingBed) {
-        throw new Error(
-          "Bed already occupied"
-        );
-      }
+      if (existingBed)
+        throw new Error( "Bed already occupied" );
 
       const encounter =
         await tx.encounter.create({
@@ -533,3 +451,8 @@ export const createAdmission = async ( data: any ) => {
     }
   );
 };
+
+export const findReferralById = (referralId: string) =>
+  prisma.referral.findUnique({
+    where: { id: referralId }
+  });

@@ -32,7 +32,7 @@ export const findByPatient = (patientId: string) => {
   });
 };
 
-export const updateNutritionProduct = (
+export const updateNutritionProduct = async (
   id: string,
   data: Partial<{
     productName: string;
@@ -45,6 +45,14 @@ export const updateNutritionProduct = (
     status: "valid" | "expired" | "cancelled";
   }>
 ) => {
+  const existing = await prisma.nutritionPrescription.findUnique({
+    where: { id },
+  });
+
+  if (!existing) {
+    throw new Error("Nutrition product not found");
+  }
+
   return prisma.nutritionPrescription.update({
     where: { id },
     data: {
@@ -62,8 +70,26 @@ export const updateNutritionProduct = (
   });
 };
 
-export const deleteNutritionProduct = (id: string) => {
+export const deleteNutritionProduct = async (id: string) => {
+  const existing = await prisma.nutritionPrescription.findUnique({
+    where: { id },
+  });
+
+  if (!existing) throw new Error("Nutrition product not found");
+  
+
   return prisma.nutritionPrescription.delete({
     where: { id },
   });
 };
+
+
+export const findById = (id: string) =>
+  prisma.nutritionPrescription.findUnique({
+    where: { id },
+  });
+
+export const findPatientById = (id: string) =>
+  prisma.patient.findUnique({
+    where: {id}
+  })

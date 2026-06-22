@@ -12,6 +12,7 @@ import {
   createStayFromReferral,
   closeStay,
   createAdmission,
+  findReferralById,
 } from "./inpatient.repository.js";
 
 import { mapActiveContact } from "./inpatient.schema.js";
@@ -28,16 +29,18 @@ export const getActiveContacts = async ( clinicId: string ) => {
 
 export const savePlannedDischarge = async ({
   stayId,
+  clinicId,
   date,
   time,
   status,
 }: {
   stayId: string;
+  clinicId: string;
   date: string;
   time: string;
   status: string;
 }) => {
-  const stay = await findStayById(stayId);
+  const stay = await findStayById(stayId, clinicId);
 
   if (!stay)  throw new Error("Stay not found");
 
@@ -46,8 +49,8 @@ export const savePlannedDischarge = async ({
   return updatePlannedDischarge( stayId, plannedDischargeAt, status );
 };
 
-export const changeBed = async ({ stayId, bedCode, }: { stayId: string; bedCode: string; }) => {
-  const stay = await findStayById(stayId);
+export const changeBed = async ({ stayId, clinicId, bedCode, }: { stayId: string; clinicId: string, bedCode: string; }) => {
+  const stay = await findStayById(stayId, clinicId);
 
   if (!stay) throw new Error("Stay not found");
   
@@ -55,8 +58,8 @@ export const changeBed = async ({ stayId, bedCode, }: { stayId: string; bedCode:
   return updateBed(stayId, bedCode);
 };
 
-export const getPatientLog = async ( stayId: string ) => {
-  const stay = await findStayById(stayId);
+export const getPatientLog = async ( stayId: string, clinicId: string ) => {
+  const stay = await findStayById(stayId, clinicId);
 
   if (!stay) return [];
   
@@ -131,8 +134,8 @@ export const getCoordination = async ( stayId: string ) => {
   };
 };
 
-export const saveCoordination = async ({ stayId, data, }: { stayId: string; data: any; }) => {
-  const stay = await findStayById(stayId);
+export const saveCoordination = async ({ stayId, clinicId, data, }: { stayId: string; clinicId: string; data: any; }) => {
+  const stay = await findStayById(stayId, clinicId);
 
   if (!stay)  throw new Error("Stay not found");
   
@@ -165,8 +168,8 @@ export const saveCoordination = async ({ stayId, data, }: { stayId: string; data
   });
 };
 
-export const planTransfer = async ( data: any ) => {
-  const stay = await findStayById( data.stayId );
+export const planTransfer = async ( data: any,  ) => {
+  const stay = await findStayById( data.stayId, data.clinicId );
 
   if (!stay) throw new Error("Stay not found");
   
@@ -209,14 +212,20 @@ export const reserveBed = async ( referralId: string, bedCode: string ) => {
   return updateReferralBed( referralId, bedCode);
 };
 
-export const transferNow = async ( referralId: string ) => {
-  const referral = await completeTransfer(referralId);
+export const transferNow = async (referralId: string) => {
+  const existing = await findReferralById(referralId);
 
-  return createStayFromReferral( referral );
+  if (!existing) throw new Error("Referral not found");
+
+  if (existing.status === "completed") 
+    throw new Error("Transfer already completed");
+
+  const referral = await completeTransfer(referralId);
+  return createStayFromReferral(referral);
 };
 
-export const endCareContact = async ( stayId: string ) => {
-  const stay = await findStayById(stayId);
+export const endCareContact = async ( stayId: string, clinicId: string ) => {
+  const stay = await findStayById(stayId, clinicId);
 
   if (!stay) throw new Error("Stay not found");
 

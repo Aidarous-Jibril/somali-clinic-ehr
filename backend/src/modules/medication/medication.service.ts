@@ -100,32 +100,38 @@ function buildScheduledDate(
 /* -------------------------------------------------------------------------- */
 /* Create Medication                                                          */
 /* -------------------------------------------------------------------------- */
+type CreateMedicationServiceInput =
+  CreateMedicationInput & {
+    clinicId: string;
+    prescribedByAccountId: string;
+  };
 
-export const createMedication = async (
-  input: CreateMedicationInput
-) => {
-  // Ensure dosingText is always populated
+export const createMedication = async ( input: CreateMedicationServiceInput ) => {
+  const patient = await prisma.patient.findFirst({
+    where: {
+      id: input.patientId,
+      clinicId: input.clinicId,
+      isDeleted: false,
+    },
+  });
+
+  if (!patient)
+    throw new Error("Patient not found");
+
   const payload = {
     ...input,
     dosingText:
       input.dosingText?.trim() || input.dose,
   };
 
-  // 1. Create medication
   const medication = await repo.createMedication(payload);
 
-  // 2. PRN medications do not receive scheduled doses
-  if (payload.frequency === "as_needed") {
-    return medication;
-  }
+  if (payload.frequency === "as_needed") return medication;
 
-  // 3. Determine daily schedule times
-  const times = getScheduledTimes(String(payload.frequency));
+  const times = getScheduledTimes(payload.frequency);
 
-  // 4. Determine treatment duration
   const durationDays = getDurationDays(payload.dosingText);
 
-  // 5. Build all scheduled doses
   const dosesToCreate = [];
 
   for (let day = 0; day < durationDays; day++) {
@@ -143,46 +149,56 @@ export const createMedication = async (
     }
   }
 
-  // 6. Bulk insert scheduled doses
   if (dosesToCreate.length > 0) {
     await prisma.medicationDose.createMany({
       data: dosesToCreate,
     });
   }
 
-  // 7. Return created medication
   return medication;
 };
 
 /* -------------------------------------------------------------------------- */
 /* List Medications                                                           */
 /* -------------------------------------------------------------------------- */
+export const listMedications = async ( patientId: string, clinicId: string ) => {
+  const patient = await prisma.patient.findFirst({
+    where: {
+      id: patientId,
+      clinicId,
+      isDeleted: false,
+    },
+  });
 
-export const listMedications = (patientId: string, clinicId: string) => {
+  if (!patient)
+    throw new Error("Patient not found");
+
   return repo.findMedicationsByPatient(patientId, clinicId);
 };
 
 /* -------------------------------------------------------------------------- */
 /* Status Actions                                                             */
 /* -------------------------------------------------------------------------- */
-
-export const stopMedication = (medicationId: string) => {
+export const stopMedication = (medicationId: string, clinicId: string) => {
   return repo.updateStatus(
     medicationId,
+    clinicId,
     MedicationStatus.ended
   );
 };
 
-export const pauseMedication = (medicationId: string) => {
+export const pauseMedication = (medicationId: string, clinicId: string) => {
   return repo.updateStatus(
     medicationId,
+    clinicId,
     MedicationStatus.paused
   );
 };
 
-export const resumeMedication = (medicationId: string) => {
+export const resumeMedication = (medicationId: string, clinicId: string) => {
   return repo.updateStatus(
     medicationId,
+    clinicId,
     MedicationStatus.active
   );
 };
@@ -190,7 +206,6 @@ export const resumeMedication = (medicationId: string) => {
 /* -------------------------------------------------------------------------- */
 /* Favorites                                                                  */
 /* -------------------------------------------------------------------------- */
-
 export const listFavorites = () => {
   return repo.findFavorites();
 };

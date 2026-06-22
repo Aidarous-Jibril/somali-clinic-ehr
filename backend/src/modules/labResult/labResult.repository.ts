@@ -10,6 +10,7 @@ export const createLabResult = (data: {
   flag: LabResultFlag;
   resultDate?: Date;
 }) => {
+  
   return prisma.labResult.create({ data });
 };
 
@@ -34,6 +35,22 @@ export const findResultByOrderId = ( orderId: string ) => {
   return prisma.labResult.findFirst({
     where: {
       orderId,
+    },
+  });
+};
+
+export const findOrderById = (id: string) => {
+  return prisma.order.findUnique({
+    where: { id },
+  });
+};
+
+export const updateOrderAsResulted = (id: string) => {
+  return prisma.order.update({
+    where: { id },
+    data: {
+      status: "resulted",
+      resultedAt: new Date(),
     },
   });
 };

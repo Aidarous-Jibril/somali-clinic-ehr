@@ -3,16 +3,23 @@ import React, { createContext, useContext, useState } from "react";
 export type AuthUser = {
   id: string;
   name: string;
+  email?: string;
   role: string;
+  clinicId: string;
+  clinicCode: string;
+  clinicName: string;
+
   unitId: string;
   unitName?: string;
-  clinicId: string;
+
+  teamId?: string;
+  teamName?: string;
 };
 
 type AuthContextType = {
   user: AuthUser | null;
   token: string | null;
-  unitId: string | null; // 🔥 used across app
+  unitId: string | null; // used across app
   login: (data: { token: string; staff: AuthUser }) => void;
   logout: () => void;
 };

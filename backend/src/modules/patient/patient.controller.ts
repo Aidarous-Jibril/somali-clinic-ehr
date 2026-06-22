@@ -1,65 +1,97 @@
 import { Request, Response } from "express";
 import * as service from "./patient.service.js";
+import { Roles } from "../../constants/roles.js";
 
-export const createPatient = async (req: Request, res: Response) => {
+export const createPatient = async ( req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user) return res.status(401).json({ message: "Unauthorized" });
+    const patient = await service.createPatient( req.body, req.user );
 
-    const patient = await service.createPatient({ ...req.body, clinicId: user.clinicId, });
-    return res.status(201).json(patient);
+    res.status(201).json({
+      message: "Patient created successfully",
+      data: patient,
+    });
   } catch (error: any) {
-    if (error.message === "Patient already exists")
-      return res.status(409).json({ message: error.message });
-
-    return res.status(500).json({ message: "Failed to create patient" });
-  }
-};
-
-export const listMyClinicPatients = async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user;
-    if (!user) return res.status(401).json({ message: "Unauthorized" });
-  
-    const patients = await service.listPatients(user.clinicId);
-  
-    res.json(patients);
-  } catch (error) {
     console.error(error);
 
-    res.status(500).json({ message: "Failed to load patients",});
+    if (error.message === "Patient already exists") 
+      return res.status(409).json({ message: error.message, });
+
+    res.status(500).json({ message: error.message, });
   }
 };
 
-export const getPatient = async (req: Request, res: Response) => {
+export const listMyClinicPatients = async ( req: Request, res: Response ) => {
+  try {
+    const patients = await service.listPatients( req.user );
+
+    res.json(patients);
+  } catch (error: any) {
+    console.error(error);
+
+    res.status(500).json({ message: error.message, });
+  }
+};
+
+export const getPatient = async ( req: Request, res: Response ) => {
   try {
     const patientId = String(req.params.patientId);
-    const patient = await service.getPatientById(patientId);
-  
+
+    const patient = await service.getPatientById( patientId, req.user );
+
     res.json(patient);
   } catch (error: any) {
     console.error(error);
 
-    if (error.message === "Patient not found") {
-      return res.status(404).json({ message: error.message, });
-    }
+    if (error.message === "Patient not found") 
+      return res.status(404).json({ message: error.message,});
 
-    res.status(500).json({ message: "Failed to load patient",  });
+    res.status(500).json({ message: error.message, });
   }
 };
 
-export const searchPatients = async (req: Request, res: Response) => {
+export const searchPatients = async ( req: Request, res: Response ) => {
   try {
-    const user = (req as any).user;
     const q = String(req.query.q || "").trim();
-  
-    if (!user) return res.status(401).json({ message: "Unauthorized" });
-  
-    const patients = await service.searchPatients(user.clinicId, q);
+    if (!q) return res.status(400).json({ message: "Search query is required", });
+
+    const patients = await service.searchPatients( q, req.user );
+
     res.json(patients);
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
 
-    res.status(500).json({ message: "Failed to search patients", });
+    res.status(500).json({ message: error.message, });
+  }
+};
+
+export const updatePatient = async ( req: Request, res: Response ) => {
+  try {
+    const patientId = String(req.params.patientId);
+
+    const patient = await service.updatePatient(
+      patientId,
+      req.body,
+      req.user
+    );
+
+    res.json({ message: "Patient updated successfully", data: patient, });
+  } catch (error: any) {
+    console.error(error);
+
+    res.status(400).json({ message: error.message, });
+  }
+};
+
+export const deletePatient = async ( req: Request, res: Response ) => {
+  try {
+    const patientId = String(req.params.patientId);
+
+    await service.deletePatient( patientId, req.user);
+
+    res.status(204).send();
+  } catch (error: any) {
+    console.error(error);
+
+    res.status(400).json({ message: error.message,});
   }
 };

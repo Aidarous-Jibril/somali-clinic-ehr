@@ -3,7 +3,11 @@ import { loginRequest } from "../../api/auth.api";
 
 export const useLogin = () => {
   return useMutation({
-    mutationFn: ({ email, password }: { email: string; password: string }) =>
-      loginRequest(email, password),
+   mutationFn: ({ clinicCode, email, password, }: {
+    clinicCode: string;
+    email: string;
+    password: string;
+  }) =>
+    loginRequest(clinicCode, email, password),
   });
 };

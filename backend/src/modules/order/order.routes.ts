@@ -9,16 +9,17 @@ const router = Router();
 
 
 router.post( "/", requireRoles(Roles.Doctor), validate(createOrderSchema), controller.createOrder);
-router.patch("/:id", validate(updateOrderSchema), controller.updateOrder);
+
+
+router.post("/:id/start",  requireRoles(Roles.Lab, Roles.Radiology), controller.startOrder);   // ordered → in_progress
+router.post( "/:id/result", requireRoles(Roles.Lab, Roles.Radiology), validate(resultOrderSchema), controller.resultOrder);
+router.post("/:id/review", requireRoles(Roles.Doctor), controller.reviewOrder);     // resulted → reviewed
+router.post("/:id/complete", requireRoles(Roles.Doctor), controller.completeOrder); // reviewed → completed
 
 router.get("/encounter/:encounterId", controller.listOrdersByEncounter);
 router.get("/patient/:patientId", controller.listOrdersByPatient);
 
-router.post("/:id/start",  requireRoles(Roles.Lab, Roles.Radiology), controller.startOrder);   // ordered → in_progress
-
-router.post( "/:id/result", requireRoles(Roles.Lab, Roles.Radiology), validate(resultOrderSchema), controller.resultOrder);
-router.post("/:id/review", requireRoles(Roles.Doctor), controller.reviewOrder);     // resulted → reviewed
-router.post("/:id/complete", requireRoles(Roles.Doctor), controller.completeOrder); // reviewed → completed
 router.get( "/lab/worklist", requireRoles(Roles.Lab, Roles.Radiology), controller.listLabOrders );
+router.patch("/:id", requireRoles(Roles.Doctor), validate(updateOrderSchema), controller.updateOrder);
 
 export default router;

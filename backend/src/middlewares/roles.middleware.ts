@@ -1,3 +1,4 @@
+// src/middlewares/roles.middleware.ts
 import { Request, Response, NextFunction } from "express";
 
 export const requireRoles = (...roles: string[]) => ( req: Request, res: Response, next: NextFunction ) => {

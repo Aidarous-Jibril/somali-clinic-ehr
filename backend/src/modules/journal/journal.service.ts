@@ -46,14 +46,32 @@ export const listNotes = (query: any) => {
 };
 
 export const createNote = async (input: any, user: any) => {
+  const table = await repo.findTableById(input.tableId);
+
+  if (!table) throw new Error("Journal table not found");
+
+  if (table.clinicId !== user.clinicId) throw new Error("Forbidden");
+
+  if (table.patientId !== input.patientId) throw new Error("Table does not belong to patient");
+
+  if (table.status !== "open") throw new Error("Journal table is closed");
+
+  const person = await prisma.staffPerson.findUnique({
+    where: { id: user.personId, },
+  });
+
+  if (!person) throw new Error("Staff person not found");
+
   return repo.createNote({
     tableId: input.tableId,
     patientId: input.patientId,
-    clinicId: user!.clinicId,
+    clinicId: user.clinicId,
     title: input.title,
     content: input.content,
     unit: input.unit,
-    authorId: user!.accountId,
+
+    authorId: user.accountId,
+    authorName: `${person.firstName} ${person.lastName}`,
 
     status: "draft",
     eventDateTime: new Date(),
@@ -125,7 +143,7 @@ export const closeTable = async ( id: string, reason: string, comment: string,  
     closeReason: reason,
     closeComment: comment,
     closedAt: new Date(),
-    closedByAccountId: user!.accountId,
+    closedByStaffId: user!.accountId,
   });
 };
 
@@ -141,6 +159,6 @@ export const reopenTable = async ( id: string, user: any ) => {
     closeReason: null,
     closeComment: null,
     closedAt: null,
-    closedByAccountId: null,
+    closedByStaffId: null,
   });
 };

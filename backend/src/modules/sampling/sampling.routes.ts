@@ -21,8 +21,8 @@ router.post( "/", requireRoles("Lab", "Radiology"), validate(createSampleSchema)
    GETTERS
 ========================= */
 router.get( "/", controller.getAllSamplesController );
-router.get( "/:id", controller.getSampleByIdController );
 router.get( "/order/:orderId", controller.getSamplesByOrderIdController );
+router.get( "/:id", controller.getSampleByIdController );
 
 /* =========================
    LIFECYCLE

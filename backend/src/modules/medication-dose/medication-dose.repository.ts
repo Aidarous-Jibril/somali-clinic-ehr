@@ -22,6 +22,12 @@ export const createDose = (data: {
   });
 };
 
+export const findMedicationById = ( medicationId: string ) => {
+  return prisma.medication.findUnique({
+    where: { id: medicationId,},
+  });
+};
+
 export const findDoseById = (id: string) => {
   return prisma.medicationDose.findUnique({
     where: { id },

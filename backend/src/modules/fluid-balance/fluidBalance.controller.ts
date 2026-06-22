@@ -6,14 +6,13 @@ export const createFluidBalance = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (!user) return res.status(401).json({ message: "Unauthorized" });
-  
+    
     const entry = await service.registerFluidBalance(req.body, user);
-  
-    res.status(201).json(entry);
-  } catch (error) {
-    console.error(error);
 
-    res.status(500).json({ message: "Failed to create fluid balance entry", });
+    res.status(201).json(entry);
+      } catch (error: any) {
+      console.error(error);
+      res.status(400).json({ message: error.message, });
   }
 };
 
@@ -26,9 +25,25 @@ export const getByPatient = async (req: Request, res: Response) => {
  
    const entries = await service.listFluidBalanceForPatient(patientId, user);
    res.json(entries);
- } catch (error) {
+ } catch (error: any) {
    console.error(error);
+    res.status(400).json({ message: error.message, }); }
+};
 
-    res.status(500).json({ message: "Failed to load fluid balance entries", });
- }
+
+
+export const updateFluidBalance = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) return res.status(401).json({ message: "Unauthorized" });
+
+    const id = String(req.params.id);
+
+    const updated = await service.updateFluidBalance( id, req.body, user );
+
+    res.json(updated);
+  } catch (error: any) {
+    console.error(error);
+    res.status(400).json({ message: error.message,});
+  }
 };

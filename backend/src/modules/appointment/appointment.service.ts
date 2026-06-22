@@ -53,9 +53,14 @@ export const createAppointment = async (input: any) => {
 export const listAppointments = async (query: any) => {
   const filters: any = { clinicId: query.clinicId, };
 
-  if (query.doctorId) filters.doctorId = query.doctorId;
-  if (query.patientId) filters.patientId = query.patientId;
-  if (query.status) filters.status = query.status;
+  if (query.doctorAssignmentId)
+  filters.doctorAssignmentId = query.doctorAssignmentId;
+
+  if (query.patientId) 
+    filters.patientId = query.patientId;
+
+  if (query.status) 
+    filters.status = query.status;
 
   return repo.findAppointments(filters);
 };
@@ -71,28 +76,83 @@ export const markArrived = (id: string) =>
 
 export const startAppointment = async (id: string) => {
   const appointment = await repo.findById(id);
-  if (!appointment) throw new Error("Appointment not found");
+  if (!appointment) 
+    throw new Error("Appointment not found");
+
+  if (appointment.encounterId) 
+    throw new Error("Encounter already exists");
 
   // CREATE ENCOUNTER (VERY IMPORTANT)
-  const encounter = await prisma.encounter.create({
-    data: {
-      clinicId: appointment.clinicId,
-      patientId: appointment.patientId,
-      type: "outpatient",
-      status: "open",
-    },
-  });
+  return prisma.$transaction(async (tx) => {
+    const encounter = await tx.encounter.create({
+      data: {
+        clinicId: appointment.clinicId,
+        patientId: appointment.patientId,
+        type: "outpatient",
+        status: "open",
+      },
+    });
 
-  return repo.updateAppointment(id, {
-    status: "in_progress",
-    encounterId: encounter.id,
+    return tx.appointment.update({
+      where: { id },
+      data: {
+        status: "in_progress",
+        encounterId: encounter.id,
+      },
+      include: {
+        patient: true,
+        unit: true,
+        doctorAssignment: {
+          include: {
+            account: {
+              include: {
+                person: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  });
+  };
+
+export const completeAppointment = async (id: string) => {
+  const appointment = await repo.findById(id);
+
+  if (!appointment) throw new Error("Appointment not found");
+
+  return prisma.$transaction(async (tx) => {
+    if (appointment.encounterId) {
+      await tx.encounter.update({
+        where: { id: appointment.encounterId },
+        data: {
+          status: "closed",
+          endedAt: new Date(),
+        },
+      });
+    }
+
+    return tx.appointment.update({
+      where: { id },
+      data: {
+        status: "completed",
+      },
+      include: {
+        patient: true,
+        unit: true,
+        doctorAssignment: {
+          include: {
+            account: {
+              include: {
+                person: true,
+              },
+            },
+          },
+        },
+      },
+    });
   });
 };
-
-export const completeAppointment = (id: string) =>
-  repo.updateAppointment(id, {
-    status: "completed",
-  });
 
 
 export const cancelAppointment = async (id: string, user: any) => {

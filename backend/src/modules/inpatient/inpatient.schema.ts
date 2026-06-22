@@ -49,13 +49,6 @@ export const mapActiveContact = (stay: any): ActiveContactDto => {
     activity: stay.activity ?? "",
     plannedTransfer,
 
-    plannedDischarge: stay.plannedDischargeAt
-      ? {
-          dateTime: stay.plannedDischargeAt.toISOString(),
-          status:
-            stay.plannedDischargeStatus ??
-            "notEvaluated",
-        }
-      : undefined,
+    plannedDischarge: stay.plannedDischargeAt ? { dateTime: stay.plannedDischargeAt.toISOString(), status: stay.plannedDischargeStatus ?? "notEvaluated", } : undefined,
   };
 };

@@ -3,17 +3,22 @@ import * as service from "./team.service.js";
 
 export const getTeamsHandler = async ( req: Request, res: Response ) => {
   try {
-    const clinicId = String( req.query.clinicId || "" );
+    const clinicId = req.query.clinicId as string | undefined;
+    const unitId = req.query.unitId as string | undefined;
 
-    const unitId = String( req.query.unitId || "" );
-
-    const data = await service.getTeams( clinicId, unitId, req.user );
+    const data = await service.getTeams(
+      clinicId,
+      unitId,
+      req.user
+    );
 
     res.json(data);
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
 
-    res.status(500).json({ message: "Failed to fetch teams", });
+    res.status(403).json({
+      message: error?.message,
+    });
   }
 };
 

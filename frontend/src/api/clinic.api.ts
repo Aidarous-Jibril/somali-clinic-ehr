@@ -1,6 +1,6 @@
 import { api } from "./client";
 
 export const getClinics = async () => {
-  const res = await api.get("/clinics");
+  const res = await api.get("/clinics/public");
   return res.data;
 };

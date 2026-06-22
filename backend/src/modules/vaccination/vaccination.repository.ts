@@ -10,10 +10,8 @@ export const createVaccination = (
     dose?: string;
     manufacturer?: string;
     batchNumber?: string;
-
     administeredAt?: Date;
     notes?: string;
-
     status?: VaccinationStatus;
     administeredByAccountId?: string;
   }
@@ -23,17 +21,18 @@ export const createVaccination = (
   });
 };
 
-export const findByPatient = ( patientId: string, clinicId: string ) => {
+export const findByPatient = (
+  patientId: string,
+  clinicId?: string
+) => {
   return prisma.vaccination.findMany({
     where: {
       patientId,
-      clinicId,
+      ...(clinicId && { clinicId }),
     },
-
     orderBy: {
       administeredAt: "desc",
     },
-
     include: {
       administeredByAccount: {
         include: {
@@ -44,18 +43,55 @@ export const findByPatient = ( patientId: string, clinicId: string ) => {
   });
 };
 
-export const findById = ( id: string ) => {
-  return prisma.vaccination.findUnique({
-    where: { id },
+export const findById = (
+  id: string,
+  clinicId?: string
+) => {
+  return prisma.vaccination.findFirst({
+    where: {
+      id,
+      ...(clinicId && { clinicId }),
+    },
   });
 };
 
-export const updateStatus = ( id: string, status: VaccinationStatus ) => {
+export const updateStatus = (
+  id: string,
+  status: VaccinationStatus
+) => {
   return prisma.vaccination.update({
     where: { id },
-
     data: {
       status,
     },
   });
 };
+
+export const completeVaccination = (
+  id: string
+) => {
+  return prisma.vaccination.update({
+    where: { id },
+    data: {
+      status: "completed",
+      administeredAt: new Date(),
+    },
+  });
+};
+
+export const findPatientById = (
+  id: string
+) =>
+  prisma.patient.findFirst({
+    where: {
+      id,
+      isDeleted: false,
+    },
+  });
+
+export const findEncounterById = (
+  id: string
+) =>
+  prisma.encounter.findUnique({
+    where: { id },
+  });

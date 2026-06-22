@@ -14,10 +14,7 @@ import {
   admitPatient,
 } from "./inpatient.service.js";
 
-export const admitPatientHandler = async (
-  req: Request,
-  res: Response
-) => {
+export const admitPatientHandler = async ( req: Request, res: Response ) => {
   try {
     const result = await admitPatient({
       ...req.body,
@@ -26,158 +23,94 @@ export const admitPatientHandler = async (
     });
 
     res.json(result);
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-
-    res.status(500).json({
-      message: "Failed to admit patient",
-    });
+    res.status(500).json({ message: error.message, });
   }
 };
 
-export const getActiveContactsHandler = async (
-  req: Request,
-  res: Response
-) => {
+export const getActiveContactsHandler = async ( req: Request, res: Response ) => {
   try {
-    const data = await getActiveContacts(
-      req.user!.clinicId
-    );
+    const data = await getActiveContacts( req.user!.clinicId);
 
     res.json(data);
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-
-    res.status(500).json({
-      message: "Failed to fetch active contacts",
-    });
+    res.status(500).json({ message: error.message, });
   }
 };
 
-export const savePlannedDischargeHandler = async (
-  req: Request,
-  res: Response
-) => {
+export const savePlannedDischargeHandler = async ( req: Request, res: Response ) => {
   try {
     const { stayId, date, time, status } = req.body;
 
-    if (!stayId || !date || !time || !status) {
-      return res.status(400).json({
-        message: "Missing fields",
-      });
-    }
+    if (!stayId || !date || !time || !status) 
+      return res.status(400).json({ message: "Missing fields", });
 
-    const result = await savePlannedDischarge({
-      stayId,
-      date,
-      time,
-      status,
-    });
+    const result = await savePlannedDischarge({ stayId, clinicId: req.user!.clinicId, date, time, status,});
 
     res.json(result);
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to save planned discharge",
-    });
+  } catch (error: any) {
+      console.error(error);
+      res.status(500).json({ message: error.message, });
   }
 };
 
-export const changeBedHandler = async (
-  req: Request,
-  res: Response
-) => {
+export const changeBedHandler = async ( req: Request, res: Response ) => {
   try {
     const { stayId, bedCode } = req.body;
 
-    if (!stayId || !bedCode) {
-      return res.status(400).json({
-        message: "Missing fields",
-      });
-    }
+    if (!stayId || !bedCode) 
+      return res.status(400).json({ message: "Missing fields",  });
 
-    const result = await changeBed({
-      stayId,
-      bedCode,
-    });
+    const result = await changeBed({ stayId, clinicId: req.user!.clinicId, bedCode,});
 
     res.json(result);
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to change bed",
-    });
+  } catch (error: any) {
+      console.error(error);
+      res.status(500).json({ message: error.message, });
   }
 };
 
-export const getPatientLogHandler = async (
-  req: Request,
-  res: Response
-) => {
+export const getPatientLogHandler = async ( req: Request, res: Response ) => {
   try {
     const stayId = String(req.params.stayId);
 
-    res.json(await getPatientLog(stayId));
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to load patient log",
-    });
+    res.json(await getPatientLog(stayId, req.user!.clinicId));
+  } catch (error: any) {
+      console.error(error);
+      res.status(400).json({ message: error.message, });
   }
 };
 
-export const getCoordinationHandler = async (
-  req: Request,
-  res: Response
-) => {
+export const getCoordinationHandler = async ( req: Request, res: Response ) => {
   try {
     const stayId = String(req.params.stayId);
 
     res.json(await getCoordination(stayId));
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to load coordination",
-    });
+  } catch (error: any) {
+      console.error(error);
+      res.status(400).json({ message: error.message, });
   }
 };
 
-export const saveCoordinationHandler = async (
-  req: Request,
-  res: Response
-) => {
+export const saveCoordinationHandler = async ( req: Request, res: Response) => {
   try {
     const { stayId, ...data } = req.body;
 
-    if (!stayId) {
-      return res.status(400).json({
-        message: "stayId is required",
-      });
-    }
+    if (!stayId) 
+      return res.status(400).json({ message: "stayId is required", });
 
-    const result = await saveCoordination({
-      stayId,
-      data,
-    });
+    const result = await saveCoordination({ stayId, clinicId: req.user!.clinicId, data,});
 
     res.json(result);
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to save coordination",
-    });
+  } catch (error: any) {
+      console.error(error);
+      res.status(500).json({ message: error.message, });
   }
 };
 
-export const planTransferHandler = async (
-  req: Request,
-  res: Response
-) => {
+export const planTransferHandler = async ( req: Request, res: Response ) => {
   try {
     const result = await planTransfer({
       ...req.body,
@@ -186,19 +119,13 @@ export const planTransferHandler = async (
     });
 
     res.json(result);
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to plan transfer",
-    });
+  } catch (error: any) {
+      console.error(error);
+      res.status(500).json({ message: error.message, });
   }
 };
 
-export const getTransfersHandler = async (
-  req: Request,
-  res: Response
-) => {
+export const getTransfersHandler = async ( req: Request, res: Response ) => {
   try {
     const data = await getTransfers(
       req.user!.clinicId,
@@ -206,77 +133,50 @@ export const getTransfersHandler = async (
     );
 
     res.json(data);
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to load transfers",
-    });
+  } catch (error: any) {
+      console.error(error);
+      res.status(500).json({ message: error.message, });
   }
 };
 
-export const reserveBedHandler = async (
-  req: Request,
-  res: Response
-) => {
+export const reserveBedHandler = async ( req: Request, res: Response ) => {
   try {
     const { referralId, bedCode } = req.body;
 
-    const result = await reserveBed(
-      referralId,
-      bedCode
-    );
+    const result = await reserveBed( referralId, bedCode );
 
     res.json(result);
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to reserve bed",
-    });
+  } catch (error: any) {
+      console.error(error);
+      res.status(500).json({ message: error.message, });
   }
 };
 
-export const transferNowHandler = async (
-  req: Request,
-  res: Response
-) => {
+export const transferNowHandler = async ( req: Request, res: Response ) => {
   try {
     const { referralId } = req.body;
 
     const result = await transferNow(referralId);
 
     res.json(result);
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to transfer patient",
-    });
+  } catch (error: any) {
+      console.error(error);
+      res.status(500).json({ message: error.message, });
   }
 };
 
-export const endCareContactHandler = async (
-  req: Request,
-  res: Response
-) => {
+export const endCareContactHandler = async ( req: Request, res: Response ) => {
   try {
     const { stayId } = req.body;
 
-    if (!stayId) {
-      return res.status(400).json({
-        message: "stayId is required",
-      });
-    }
+    if (!stayId) 
+      return res.status(400).json({ message: "stayId is required", });
 
-    const result = await endCareContact(stayId);
+    const result = await endCareContact(stayId, req.user!.clinicId);
 
     res.json(result);
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Failed to end care contact",
-    });
+  } catch (error: any) {
+      console.error(error);
+      res.status(500).json({ message: error.message, });
   }
 };

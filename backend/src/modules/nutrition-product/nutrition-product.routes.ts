@@ -8,12 +8,12 @@ import { Roles } from "../../constants/roles.js";
 
 const router = Router();
 
-router.post( "/", requireRoles(Roles.Doctor, Roles.Nurse), validate(createNutritionProductSchema), controller.createNutritionProduct );
+router.post( "/", requireRoles(Roles.Doctor, Roles.Nurse, Roles.SuperAdmin), validate(createNutritionProductSchema), controller.createNutritionProduct );
 
-router.get( "/patient/:patientId", requireRoles(Roles.Doctor, Roles.Nurse), controller.listNutritionProducts );
+router.get( "/patient/:patientId", requireRoles(Roles.Doctor, Roles.Nurse, Roles.SuperAdmin), controller.listNutritionProducts );
 
-router.patch( "/:id", requireRoles(Roles.Doctor, Roles.Nurse), validate(updateNutritionProductSchema), controller.updateNutritionProduct );
+router.patch( "/:id", requireRoles(Roles.Doctor, Roles.Nurse, Roles.SuperAdmin), validate(updateNutritionProductSchema), controller.updateNutritionProduct );
 
-router.delete( "/:id", requireRoles(Roles.Doctor), controller.deleteNutritionProduct );
+router.delete( "/:id", requireRoles(Roles.Doctor, Roles.SuperAdmin), controller.deleteNutritionProduct );
 
 export default router;

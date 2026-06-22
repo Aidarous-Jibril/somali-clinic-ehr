@@ -1,6 +1,12 @@
+import { Roles } from "../../constants/roles.js";
+
 import {
   createConsent,
+  findActiveConsent,
+  findConsentById,
+  findPatientById,
   getConsentsByPatient,
+  remove,
   updateConsentStatus,
 } from "./consent.repository.js";
 
@@ -37,20 +43,65 @@ const mapConsent = (consent: any) => ({
   status: toUiStatus(consent.status),
 });
 
-export const getPatientConsents = async ( patientId: string ) => {
-  const rows = await getConsentsByPatient(patientId);
+export const getPatientConsents = async ( patientId: string, clinicId: string, role: string ) => {
+  const patient = await findPatientById(patientId);
+
+  if (!patient) 
+    throw { statusCode: 404, message: "Patient not found",};
+
+  if ( role !== Roles.SuperAdmin && patient.clinicId !== clinicId) 
+    throw { statusCode: 404, message: "Patient not found", };
+
+  const rows = await getConsentsByPatient( patientId );
 
   return rows.map(mapConsent);
 };
 
-export const registerConsent = async ( data: any) => {
+export const registerConsent = async ( data: any, clinicId: string, role: string ) => {
+  const patient = await findPatientById( data.patientId );
+
+  if (!patient)
+    throw { statusCode: 404, message: "Patient not found", };
+
+  if ( role !== Roles.SuperAdmin && patient.clinicId !== clinicId )
+    throw { statusCode: 404, message: "Patient not found", };
+
+  const existing = await findActiveConsent( data.patientId, data.type);
+
+  if (existing)
+    throw { statusCode: 409, message: "Active consent already exists for this type",};
+
+  if ( new Date(data.endDate) < new Date(data.startDate) )
+    throw { statusCode: 400, message: "End date cannot be before start date",};
+
   const consent = await createConsent(data);
 
   return mapConsent(consent);
 };
 
-export const changeConsentStatus = async ( id: string, status: string ) => {
-  const consent = await updateConsentStatus( id, status);
+export const changeConsentStatus = async ( id: string, status: string, clinicId: string, role: string
+) => {
+  const consent = await findConsentById( id, role === Roles.SuperAdmin ? undefined : clinicId);
 
-  return mapConsent(consent);
+  if (!consent) 
+    throw { statusCode: 404, message: "Consent not found", };
+
+  if ( role !== Roles.SuperAdmin && consent.clinicId !== clinicId ) 
+    throw { statusCode: 404, message: "Consent not found", };
+  
+  const updated = await updateConsentStatus( id, status );
+
+  return mapConsent(updated);
+};
+
+export const deleteConsent = async ( id: string, clinicId: string, role: string ) => {
+  const consent = await findConsentById( id, role === Roles.SuperAdmin ? undefined : clinicId );
+
+  if (!consent) 
+    throw { statusCode: 404, message: "Consent not found",};
+
+  if ( role !== Roles.SuperAdmin && consent.clinicId !== clinicId) 
+    throw { statusCode: 404, message: "Consent not found",};
+
+  await remove(id);
 };

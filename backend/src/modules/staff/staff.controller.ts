@@ -17,28 +17,25 @@ export const createStaff = async ( req: Request, res: Response ) => {
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { clinicCode, email, password } = req.body;
 
-    const result = await service.login(email, password);
+    if (!clinicCode) return res.status(400).json({ message: "clinicCode is required", });
+
+    const result = await service.login(clinicCode, email, password);
 
     res.json(result);
   } catch (err: any) {
-    res.status(401).json({
-      message: err.message,
-    });
+    res.status(401).json({message: err.message,});
   }
 };
 
 export const listStaff = async (req: Request, res: Response) => {
   const user = (req as any).user;
 
-  if (!user) {
-    return res.status(401).json({
-      message: "Unauthorized",
-    });
-  }
+  if (!user)  return res.status(401).json({ message: "Unauthorized", });
 
   const data = await service.listStaff(user.clinicId);
+  
   const result = data.map((a: any) => ({
   id: a.assignments[0]?.id, 
   accountId: a.id,
@@ -51,14 +48,19 @@ export const listStaff = async (req: Request, res: Response) => {
 
   teamId: a.assignments[0]?.teamId ?? null,
   teamName: a.assignments[0]?.team?.name ?? null,
-}));
+  }));
+
   res.json(result);
 };
 
 export const listByUnit = async (req: Request, res: Response) => {
+  const user = req.user;
+
+  if (!user) return res.status(401).json({ message: "Unauthorized", });
+  
   const unitId = String(req.params.unitId);
 
-  const data = await service.listByUnit(unitId);
+  const data = await service.listByUnit(unitId, user);
 
   const result = data.map((x: any) => ({
     id: x.account.id,

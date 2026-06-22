@@ -65,10 +65,11 @@ export const createStaff = async (data: any) => {
   };
 };
 
-export const findStaffByEmail = (email: string) => {
+export const findStaffByEmail = (clinicCode: string, email: string) => {
   return prisma.staffAccount.findFirst({
     where: {
       email,
+      clinic: { code: clinicCode, },
       isActive: true,
     },
     include: {
@@ -112,6 +113,22 @@ export const findByUnit = (unitId: string) => {
           person: true,
         },
       },
+    },
+  });
+};
+
+export const findUnitById = ( unitId: string ) => {
+  return prisma.unit.findUnique({
+    where: {
+      id: unitId,
+    },
+  });
+};
+
+export const findTeamById = (teamId: string) => {
+  return prisma.team.findUnique({
+    where: {
+      id: teamId,
     },
   });
 };

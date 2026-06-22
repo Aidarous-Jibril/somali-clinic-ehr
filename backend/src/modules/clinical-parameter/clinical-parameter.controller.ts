@@ -3,20 +3,20 @@ import * as service from "./clinical-parameter.service.js";
 
 export const createClinicalParameter = async ( req: Request, res: Response) => {
   try {
-    const entry = await service.recordClinicalParameter({ ...req.body, recordedByAccountId: req.user?.accountId,  });
+    const entry = await service.recordClinicalParameter({ ...req.body, clinicId: req.user!.clinicId, recordedByAccountId: req.user?.accountId,  });
 
     res.status(201).json(entry);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error(error)
-    res.status(500).json({ message: "Failed to create clinical parameter", });
+    res.status(500).json({ message: error.message, });    
   }
 };
 
 export const listClinicalParameters = async ( req: Request, res: Response ) => {
   try {
       const encounterId = String(req.params.encounterId);
-      const entries = await service.listClinicalParameters(encounterId);
+      const entries = await service.listClinicalParameters(encounterId, req.user!.clinicId );
     
       const result = entries.map((e: any) => ({
         id: e.id,
@@ -28,10 +28,8 @@ export const listClinicalParameters = async ( req: Request, res: Response ) => {
       }));
     
       res.json(result);
-  } catch (error) {
+  } catch (error: any) {
       console.error(error);
-
-      res.status(500).json({ message: "Failed to load clinical parameters", });
-        
-      }
+      res.status(500).json({ message: error.message, });    
+  }
 };

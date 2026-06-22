@@ -1,12 +1,11 @@
 import { z } from "zod";
 
 export const createMedicationSchema = z.object({
-  patientId: z.uuid(),
+  patientId: z.uuid({ message: "Patient ID must be valid", }),
   encounterId: z.uuid().optional(),
-
-  name: z.string().min(1),
+  name: z.string().min(1, { message: "Medication name is required",}),
   strength: z.string().optional(),
-  dose: z.string().min(1),
+  dose: z.string().min(1, { message: "Dose is required",}),
 
   frequency: z.enum([
     "once_daily",

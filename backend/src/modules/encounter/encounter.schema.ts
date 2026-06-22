@@ -1,16 +1,13 @@
 import { z } from "zod";
 
-export const createEncounterSchema = z.object({ 
-  clinicId: z.uuid().optional(),
+export const createEncounterSchema = z.object({
   patientId: z.uuid(),
-
   type: z.enum([
     "outpatient",
     "inpatient",
     "emergency",
     "telehealth",
   ]),
-
   reason: z.string().min(1).optional(),
   notes: z.string().optional(),
 });

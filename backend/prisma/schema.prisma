@@ -528,6 +528,7 @@ model StaffAccount {
   reviewedOrders Order[] @relation("OrderReviewedBy")
 
   collectedSamples     Sample[]              @relation("SampleCollectedBy")
+  receivedSamples      Sample[]              @relation("SampleReceivedBy")
   processedSamples     Sample[]              @relation("SampleProcessedBy")
   sampleTrackingEvents SampleTrackingEvent[]
 
@@ -893,7 +894,6 @@ enum SampleType {
 enum SampleStatus {
   registered
   collected
-  in_transit
   received
   processing
   completed
@@ -903,7 +903,6 @@ enum SampleStatus {
 enum SampleTrackingEventType {
   registered
   collected
-  transferred
   received
   processing
   completed
@@ -928,9 +927,13 @@ model Sample {
   collectedAt DateTime?
   receivedAt  DateTime?
   processedAt DateTime?
+  completedAt DateTime?
 
   collectedByAccountId String?
   collectedByAccount   StaffAccount? @relation("SampleCollectedBy", fields: [collectedByAccountId], references: [id])
+
+  receivedByAccountId String?
+  receivedByAccount   StaffAccount? @relation("SampleReceivedBy", fields: [receivedByAccountId], references: [id])
 
   processedByAccountId String?
   processedByAccount   StaffAccount? @relation("SampleProcessedBy", fields: [processedByAccountId], references: [id])
