@@ -90,6 +90,18 @@ const Sidebar: React.FC<Props> = ({
         </li>
       )}
 
+{hasPermission(user, "pharmacy:view") && (
+  <li>
+    <NavLink
+      to="/pharmacy"
+      className={({ isActive }) =>
+        `${navLinkClass} ${isActive ? activeClass : ""}`
+      }
+    >
+      Pharmacy
+    </NavLink>
+  </li>
+)}
       {hasPermission(user, "consents:view") && (
         <li>
           <NavLink to="/consent-management" className={({ isActive }) => `${navLinkClass} ${isActive ? activeClass : ""}`}>

@@ -14,6 +14,7 @@ import ConsentManagementPage from "./pages/ConsentManagementPage";
 import ConsentManagementLandingPage from "./pages/ConsentManagementLandingPage";
 import LoginPage from "./pages/LoginPage";
 import RadiologyWorklistPage from "./pages/RadiologyWorklistPage";
+import PharmacyPage from "./pages/PharmacyPage";
 
 
 export const router = createBrowserRouter([
@@ -29,7 +30,8 @@ export const router = createBrowserRouter([
       { path: "patients/:patientId/medications", element: <MedicationsPage /> },
       { path: "patients/:patientId/appointments", element: <AppointmentsPage /> },
       { path: "patients/:patientId/consents", element: <ConsentManagementPage /> },
-      
+      { path: "/pharmacy", element: <PharmacyPage /> },
+
       { path: "consent-management", element: <ConsentManagementLandingPage /> },
       
       { path: "appointments", element: <AppointmentsPage /> },

@@ -8,6 +8,7 @@ export type AppPermission =
   | "unit:view"
   | "sampling:view"
   | "radiology:view"
+  | "pharmacy:view"
   | "consents:view";
 
 const permissionMap: Record<AppPermission, string[]> = {
@@ -58,7 +59,9 @@ const permissionMap: Record<AppPermission, string[]> = {
   "radiology:view": [
     "Radiology",
   ],
-
+"pharmacy:view": [
+  "Pharmacy",
+],
   "consents:view": [
     "Doctor",
     "Nurse",
