@@ -1,3 +1,4 @@
+//modules/medication/medication.service.ts
 import * as repo from "./medication.repository.js";
 import { CreateMedicationInput } from "./medication.schema.js";
 import {

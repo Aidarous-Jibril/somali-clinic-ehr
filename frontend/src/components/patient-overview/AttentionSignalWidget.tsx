@@ -19,7 +19,7 @@ import FlagIcon from "@mui/icons-material/Flag";
 import type { AttentionCategory, AttentionSignalEntry } from "../../features/patient-overview/types";
 import { AttentionSignalCreateDialog } from "../../features/patient-overview/dialogs/AttentionSignalCreateDialog";
 import { AttentionSignalAnnulDialog } from "../../features/patient-overview/dialogs/AttentionSignalAnnulDialog";
-import { MOCK_ATTENTION_SIGNALS } from "../../features/patient-overview/mockData";
+import { MOCK_ATTENTION_SIGNALS } from "../../features/patient-overview/constants";
 
 
 /* ============= TYPE =============== */

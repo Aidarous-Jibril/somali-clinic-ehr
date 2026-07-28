@@ -1,3 +1,4 @@
+//modules/sampling/sampling.routes.ts
 import { Router } from "express";
 import * as controller from "./sampling.controller.js";
 import { validate } from "../../middlewares/validate.middleware.js";

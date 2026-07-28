@@ -165,3 +165,21 @@ export const findOutgoing = (unitId: string ) => {
     },
   });
 };
+
+export const getWardOccupancy = async (unitId: string) => {
+  return prisma.unit.findUnique({
+    where: {
+      id: unitId,
+    },
+    include: {
+      inpatientStays: {
+        where: {
+          dischargedAt: null,
+        },
+        include: {
+          patient: true,
+        },
+      },
+    },
+  });
+};

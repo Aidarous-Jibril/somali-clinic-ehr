@@ -1,7 +1,5 @@
-import {
-  MedicationAdministrationAction,
-  MedicationDoseStatus,
-} from "@prisma/client";
+//modules/medication-dose/medication-dose.service.ts
+import { MedicationAdministrationAction, MedicationDoseStatus, } from "@prisma/client";
 
 import * as repo from "./medication-dose.repository.js";
 

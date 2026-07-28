@@ -10,7 +10,6 @@ import { ReferralsWidget } from "../components/patient-overview/ReferralsWidget"
 import { OrdersWidget } from "../components/patient-overview/OrdersWidget";
 import { ClinicalParametersWidget } from "../components/patient-overview/ClinicalParametersWidget";
 import { FluidBalanceWidget } from "../components/patient-overview/FluidBalanceWidget";
-import { ResultsWidget } from "../components/patient-overview/ResultsWidget";
 
 import { ClinicalLogDialog } from "../features/patient-overview/dialogs/ClinicalLogDialog";
 import { ClinicalUpdateDialog } from "../features/patient-overview/dialogs/ClinicalUpdateDialog";
@@ -33,7 +32,6 @@ import type {
   ClinicalUpdateForm,
 } from "../features/patient-overview/types";
 
-import {CONSCIOUSNESS_OPTIONS, } from "../features/patient-overview/mockData";
 import { FluidBalanceDetailsDialog } from "../features/patient-overview/dialogs/FluidBalanceDetailsDialog";
 import { AddFluidDialog } from "../features/patient-overview/dialogs/AddFluidDialog";
 import { calcAlert, latestEntry,} from "../features/patient-overview/helpers";
@@ -44,7 +42,6 @@ import { useActiveEncounter } from "../hooks/encounter/useActiveEncounter";
 import { toast } from "react-toastify";
 import { useClinicalParameters } from "../hooks/journal/useClinicalParameters";
 import { useCreateClinicalEntry } from "../hooks/journal/useCreateClinicalEntry"
-// useCreateClinicalEntry";
 import { buildClinicalParameterRows, mapClinicalEntriesToLogs } from "../features/patient-overview/mappers/clinical.mapper";
 import { useMedications } from "../hooks/medications/useMedications";
 import { useVaccinations } from "../hooks/vaccination/useVaccinations";
@@ -53,9 +50,14 @@ import { useUpdateReferralStatus } from "../hooks/referrals/useUpdateReferralSta
 import { useCreateReferral } from "../hooks/referrals/useCreateReferral";
 import { mapReferralToUi, mapUiStatusToBackend } from "../features/patient-overview/mappers/referral.mapper";
 import { useCreateFluidBalance, useFluidBalance, } from "../hooks/encounter/useFluidBalance";
-import { useLabResults } from "../hooks/labs/useLabResults";
+import { useLaboratoryResults } from "../hooks/laboratory/useLaboratoryResults";
+import { useRadiologyResults } from "../hooks/radiology/useRadiologyResults";
 import { useAuth } from "../context/AuthContext";
 import { IncomingReferralsWidget } from "../components/patient-overview/IncomingReferralsWidget";
+import { mapRadiologyResults } from "../features/patient-overview/mappers/radiology-result.mapper.ts";
+import { CONSCIOUSNESS_OPTIONS } from "../features/patient-overview/constants.ts";
+import LaboratoryResultsWidget from "../components/patient-overview/LaboratoryResultsWidget.tsx";
+import RadiologyResultsWidget from "../components/patient-overview/RadiologyResultsWidget.tsx";
 
 // -------------Page----------------
 const PatientOverviewPage = () => {
@@ -85,8 +87,9 @@ const PatientOverviewPage = () => {
     date: new Date().toLocaleDateString(),
   });
 
-  // ================== LABS ==================
-  const { data: labResultsRaw = [] } = useLabResults(patientId);
+  // ================== LABS & RADIOLOGY  ==================
+  const { data: labResultsRaw = [] } = useLaboratoryResults(patientId);
+  const { data: radiologyResults = [] } = useRadiologyResults(patientId);
 
   // ================== REFERRALS ==================
   const { data: referralsRaw = [] } = useReferrals(patientId);
@@ -98,16 +101,9 @@ const PatientOverviewPage = () => {
     },
   });
 
-  // const referrals = useMemo( () => referralsRaw.map(mapReferralToUi), [referralsRaw] );
   const referrals = useMemo(() => {
-  console.log("=== RAW REFERRALS ===");
-  console.log(referralsRaw);
 
   const mapped = referralsRaw.map(mapReferralToUi);
-
-  console.log("=== MAPPED REFERRALS ===");
-  console.log(mapped);
-
   return mapped;
 }, [referralsRaw]);
 
@@ -136,7 +132,8 @@ const PatientOverviewPage = () => {
 
 
 // ================== UI STATE ==================
-const [resultSearch, setResultSearch] = useState("");
+const [labSearch, setLabSearch] = useState("");
+const [radiologySearch, setRadiologySearch] = useState("");
 
 const [openClinicalDialog, setOpenClinicalDialog] = useState(false);
 
@@ -170,10 +167,7 @@ const outgoing = useMemo(
 );
 
 const filteredReferrals = useMemo(
-  () =>
-    outgoing.filter((r) =>
-      selectedReferralStatuses.includes(r.status)
-    ),
+  () => outgoing.filter((r) => selectedReferralStatuses.includes(r.status) ),
   [outgoing, selectedReferralStatuses]
 );
 
@@ -191,6 +185,11 @@ const resultsForOrders = useMemo<OrderResult[]>(() => {
     orderStatus: r.order?.status,
   }));
 }, [labResultsRaw]);
+
+const radiologyResultsMapped = useMemo(
+  () => mapRadiologyResults(radiologyResults),
+  [radiologyResults]
+);
 
 const fluidBalanceEntries = useMemo<FluidBalanceEntry[]>(() => {
   return (fluidRaw as any[])
@@ -489,19 +488,25 @@ const goTodayFluidDay = () => setFluidDayIndex(0);
           onOpenDetails={() => setOpenFluidDetails(true)}
         />
 
-        <ResultsWidget
+        <LaboratoryResultsWidget
           results={resultsForOrders}
-          search={resultSearch}
-          onSearchChange={setResultSearch}
+          search={labSearch}
+          onSearchChange={setLabSearch}
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-1">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <RadiologyResultsWidget
+          results={radiologyResultsMapped}
+          search={radiologySearch}
+          onSearchChange={setRadiologySearch}
+        />
         <IncomingReferralsWidget
           referrals={incoming}
           onOpenReferral={setSelectedReferral}
         />
       </div>
+
       <div className="grid gap-4 lg:grid-cols-1">
         {/* <CareOverviewWidget /> */}
       </div>
@@ -603,6 +608,7 @@ const goTodayFluidDay = () => setFluidDayIndex(0);
           const payload = {
             patientId: patient.id,
             encounterId: activeEncounter.id,
+            performerUnitId: form.performerUnitId,
             category: mapUiCategoryToBackend(form.category),
             code: form.name,
             name: form.name,

@@ -4,8 +4,8 @@ import { Outlet, useLocation } from "react-router-dom";
 
 import Topbar from "../components/Topbar";
 import { MessengerDialog } from "../features/messenger/dialogs/MessengerDialog";
-import { useMessengerState } from "../features/messenger/hooks/useMessengerState";
 import Sidebar from "../components/ Sidebar";
+import { useMessengerState } from "../hooks/messenger/useMessengerState";
 
 const MainLayout = () => {
   const location = useLocation();

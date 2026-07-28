@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import * as service from "./encounter.service.js";
+import { Roles } from "../../constants/roles.js";
 
 export const createEncounter = async (req: Request, res: Response) => {
   try {
@@ -26,7 +27,7 @@ export const listEncountersByPatient = async ( req: Request, res: Response) => {
     if (!user) return res.status(401).json({ message: "Unauthorized",});
   
     const patientId = String(req.params.patientId);
-    const clinicId = user.role === "SuperAdmin" ? undefined : user.clinicId;
+    const clinicId = user.role ===  Roles.SuperAdmin  ? undefined : user.clinicId;
 
     const encounters = await service.listEncountersByPatient(patientId, clinicId);
     res.json(encounters);
@@ -43,7 +44,7 @@ export const getActiveEncounter = async (req: Request, res: Response) => {
     if (!user) return res.status(401).json({ message: "Unauthorized", });
     
     const patientId = String(req.params.patientId);
-    const clinicId = user.role === "SuperAdmin" ? undefined : user.clinicId;
+    const clinicId = user.role ===  Roles.SuperAdmin  ? undefined : user.clinicId;
 
     const encounter = await service.getActiveEncounter( patientId, clinicId);
   
@@ -63,7 +64,7 @@ export const closeEncounter = async ( req: Request, res: Response ) => {
     if (!user)  return res.status(401).json({ message: "Unauthorized", });
 
     const encounterId = String( req.params.encounterId);
-    const clinicId = user.role === "SuperAdmin" ? undefined : user.clinicId;
+    const clinicId = user.role ===  Roles.SuperAdmin  ? undefined : user.clinicId;
 
     const encounter = await service.closeEncounter( encounterId, clinicId );
 

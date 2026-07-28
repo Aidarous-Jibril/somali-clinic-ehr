@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import * as service from "./staff.service.js";
+import { ReferralRole } from "@prisma/client";
 
 export const createStaff = async ( req: Request, res: Response ) => {
   try {
@@ -31,11 +32,12 @@ export const login = async (req: Request, res: Response) => {
 
 export const listStaff = async (req: Request, res: Response) => {
   const user = (req as any).user;
-
   if (!user)  return res.status(401).json({ message: "Unauthorized", });
-
-  const data = await service.listStaff(user.clinicId);
   
+  const role = req.query.role as ReferralRole | undefined;
+
+  const data = await service.listStaff( user.clinicId, role );
+
   const result = data.map((a: any) => ({
   id: a.assignments[0]?.id, 
   accountId: a.id,

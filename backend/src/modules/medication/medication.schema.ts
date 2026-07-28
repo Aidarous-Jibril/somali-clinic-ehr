@@ -1,3 +1,4 @@
+//modules/medication/medication.schema.ts
 import { z } from "zod";
 
 export const createMedicationSchema = z.object({

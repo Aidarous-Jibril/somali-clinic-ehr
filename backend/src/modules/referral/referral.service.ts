@@ -149,3 +149,33 @@ export const listIncoming = ( unitId: string ) => {
 export const listOutgoing = ( unitId: string ) => {
   return repo.findOutgoing(unitId);
 };
+
+
+export const getNurseWardOccupancy = async (unitId: string) => {
+  const unit = await repo.getWardOccupancy(unitId);
+
+  if (!unit) return null;
+
+  const occupiedBeds = unit.inpatientStays.length;
+  const totalBeds = unit.bedCapacity ?? 0;
+  const freeBeds = totalBeds - occupiedBeds;
+
+  const occupancyRate =
+    totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : null;
+
+  return {
+    unitId: unit.id,
+    unitName: unit.name,
+    totalBeds,
+    occupiedBeds,
+    freeBeds,
+    occupancyRate,
+    occupiedPatients: unit.inpatientStays.map((stay) => ({
+      stayId: stay.id,
+      patientId: stay.patient.id,
+      patientName: `${stay.patient.firstName} ${stay.patient.lastName}`,
+      bedCode: stay.bedCode,
+      admittedAt: stay.admittedAt,
+    })),
+  };
+};

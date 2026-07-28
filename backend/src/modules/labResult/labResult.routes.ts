@@ -1,3 +1,4 @@
+//labResult.routes.ts
 import { Router } from "express";
 import * as controller from "./labResult.controller.js";
 import { validate } from "../../middlewares/validate.middleware.js";

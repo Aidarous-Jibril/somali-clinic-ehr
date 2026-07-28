@@ -27,3 +27,14 @@ export const findUnitById = (id: string) =>
   prisma.unit.findUnique({
     where: { id },
   });
+
+export const findTeamByName = ( unitId: string, name: string) =>
+  prisma.team.findFirst({
+    where: {
+      unitId,
+      name: {
+        equals: name.trim(),
+        mode: "insensitive",
+      },
+    },
+  });

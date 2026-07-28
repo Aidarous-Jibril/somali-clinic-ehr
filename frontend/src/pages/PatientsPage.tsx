@@ -1,15 +1,15 @@
 // src/pages/PatientsPage.tsx
-
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { usePatients } from "../hooks/patient/usePatients";
 import { useAuth } from "../context/AuthContext";
 import CreatePatientDialog from "../features/patient/dialogs/CreatePatientDialog";
-import type { CreatePatientPayload, Patient } from "../features/patient/types";
+
+import type { CreatePatientPayload, Patient, } from "../features/patient/types";
+
 import { useCreatePatient } from "../hooks/patient/useCreatePatient";
-
-
+import { useNurseScopedPatients } from "../hooks/nurse/useNurseScopedPatients";
 
 export default function PatientsPage() {
   const navigate = useNavigate();
@@ -19,12 +19,43 @@ export default function PatientsPage() {
   const [openCreate, setOpenCreate] = useState(false);
 
   const q = searchParams.get("q")?.toLowerCase().trim() || "";
+  const scope = searchParams.get("scope");
 
-  const { data: patients = [], isLoading } = usePatients();
+  const { data: allPatients = [], isLoading } = usePatients();
+
+  const { data: scopedPatients = [] } = useNurseScopedPatients(scope || undefined);
+
   const createPatientMutation = useCreatePatient();
 
+  const patients = useMemo(() => {
+    if (!(scope && user?.role === "Nurse")) {
+      return allPatients;
+    }
+
+    return scopedPatients.map((p: any) => ({
+      id: p.patientId ?? p.id,
+      mrn: p.mrn ?? "-",
+      firstName:
+        p.firstName ??
+        p.fullName?.split(" ")[0] ??
+        p.patientName?.split(" ")[0] ??
+        "",
+      lastName:
+        p.lastName ??
+        p.fullName?.split(" ").slice(1).join(" ") ??
+        p.patientName?.split(" ").slice(1).join(" ") ??
+        "",
+      phone: p.phone ?? "-",
+      gender: p.gender ?? "unknown",
+
+      urgent: p.urgent ?? false,
+      alertType: p.alertType ?? null,
+      overdue: p.overdue ?? false,
+    }));
+  }, [scope, user?.role, scopedPatients, allPatients]);
+
   const filteredPatients = useMemo(() => {
-    const list = !q
+    const searched = !q
       ? patients
       : patients.filter((p: Patient) =>
           [
@@ -36,26 +67,61 @@ export default function PatientsPage() {
           ]
             .filter(Boolean)
             .some((value) =>
-              String(value).toLowerCase().includes(q)
+              String(value)
+                .toLowerCase()
+                .includes(q)
             )
         );
 
-    return [...list].sort(
-      (a: Patient, b: Patient) => {
-        const nameA =
-          `${a.firstName} ${a.lastName}`.toLowerCase();
+    return [...searched].sort((a: any, b: any) => {
+      const score = (p: any) =>
+        p.urgent || p.alertType || p.overdue ? 1 : 0;
 
-        const nameB =
-          `${b.firstName} ${b.lastName}`.toLowerCase();
+      const priorityDiff = score(b) - score(a);
 
-        return nameA.localeCompare(nameB);
+      if (priorityDiff !== 0) {
+        return priorityDiff;
       }
-    );
+
+      const nameA =
+        `${a.firstName} ${a.lastName}`.toLowerCase();
+
+      const nameB =
+        `${b.firstName} ${b.lastName}`.toLowerCase();
+
+      return nameA.localeCompare(nameB);
+    });
   }, [patients, q]);
 
-  const handleCreatePatient = (
-    form: Omit<CreatePatientPayload, "clinicId">
-  ) => {
+  const getPriorityBadge = (patient: any) => {
+    if (
+      patient.urgent ||
+      patient.alertType ||
+      patient.overdue
+    ) {
+      return (
+        <span className="rounded bg-red-100 px-2 py-1 text-xs font-medium text-red-700">
+          Critical
+        </span>
+      );
+    }
+
+    return (
+      <span className="rounded bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
+        Normal
+      </span>
+    );
+  };
+
+  const getStatusLabel = (patient: any) => {
+    if (patient.alertType) return patient.alertType;
+    if (patient.overdue) return "Overdue";
+    if (patient.urgent) return "Urgent referral";
+
+    return "-";
+  };
+
+  const handleCreatePatient = ( form: Omit<CreatePatientPayload, "clinicId"> ) => {
     if (!user?.clinicId) return;
 
     createPatientMutation.mutate(
@@ -64,16 +130,17 @@ export default function PatientsPage() {
         clinicId: user.clinicId,
       },
       {
-        onSuccess: (createdPatient: Patient) => {
-          setOpenCreate(false);
-          navigate(`/patients/${createdPatient.id}`);
-        },
+       onSuccess: (createdPatient: any) => {
+        navigate(`/patients/${createdPatient.id}`);
+      }
       }
     );
   };
 
   if (isLoading) {
-    return <div className="p-6">Loading patients...</div>;
+    return (
+      <div className="p-6">Loading patients...</div>
+    );
   }
 
   return (
@@ -114,6 +181,8 @@ export default function PatientsPage() {
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">Gender</th>
+                <th className="px-4 py-3">Priority</th>
+                <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">
                   Action
                 </th>
@@ -121,50 +190,56 @@ export default function PatientsPage() {
             </thead>
 
             <tbody>
-              {filteredPatients.map(
-                (patient: Patient) => (
-                  <tr
-                    key={patient.id}
-                    className="border-t hover:bg-gray-50"
-                  >
-                    <td className="px-4 py-3">
-                      {patient.mrn}
-                    </td>
+              {filteredPatients.map((patient: any) => (
+                <tr
+                  key={patient.id}
+                  className="border-t hover:bg-gray-50"
+                >
+                  <td className="px-4 py-3">
+                    {patient.mrn}
+                  </td>
 
-                    <td className="px-4 py-3">
-                      {patient.firstName}{" "}
-                      {patient.lastName}
-                    </td>
+                  <td className="px-4 py-3">
+                    {patient.firstName}{" "}
+                    {patient.lastName}
+                  </td>
 
-                    <td className="px-4 py-3">
-                      {patient.phone || "-"}
-                    </td>
+                  <td className="px-4 py-3">
+                    {patient.phone}
+                  </td>
 
-                    <td className="px-4 py-3 capitalize">
-                      {patient.gender}
-                    </td>
+                  <td className="px-4 py-3 capitalize">
+                    {patient.gender}
+                  </td>
 
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() =>
-                          navigate(
-                            `/patients/${patient.id}`
-                          )
-                        }
-                        className="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700"
-                      >
-                        Open
-                      </button>
-                    </td>
-                  </tr>
-                )
-              )}
+                  <td className="px-4 py-3">
+                    {getPriorityBadge(patient)}
+                  </td>
+
+                  <td className="px-4 py-3">
+                    {getStatusLabel(patient)}
+                  </td>
+
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() =>
+                        navigate(
+                          `/patients/${patient.id}`
+                        )
+                      }
+                      className="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700"
+                    >
+                      Open
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* Dialog */}
+      {/* Create dialog */}
       <CreatePatientDialog
         open={openCreate}
         loading={createPatientMutation.isPending}

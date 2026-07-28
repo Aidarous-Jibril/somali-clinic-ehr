@@ -139,7 +139,7 @@ async function main() {
     ],
   });
 
-  console.log("✅ Medication templates seeded successfully");
+  // console.log("✅ Medication templates seeded successfully");
 }
 
 main()

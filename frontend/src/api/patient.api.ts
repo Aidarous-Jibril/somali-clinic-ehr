@@ -25,7 +25,7 @@ export const searchPatients = async ( q: string ): Promise<Patient[]> => {
 
 export const createPatient = async ( payload: CreatePatientPayload ): Promise<Patient> => {
   const { data } = await api.post( "/patients", payload);
-  return data;
+  return data.data;
 };
 
 /* ---------------------------------- */

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const createEncounterSchema = z.object({
   patientId: z.uuid(),
+  
   type: z.enum([
     "outpatient",
     "inpatient",

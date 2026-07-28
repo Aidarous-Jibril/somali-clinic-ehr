@@ -81,7 +81,11 @@ export default function RegisterConsentDialog({
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            InputLabelProps={{ shrink: true }}
+            slotProps={{
+              inputLabel: {
+                shrink: true,
+              },
+            }}
             fullWidth
           />
           <TextField
@@ -89,7 +93,11 @@ export default function RegisterConsentDialog({
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            InputLabelProps={{ shrink: true }}
+            slotProps={{
+              inputLabel: {
+                shrink: true,
+              },
+            }}
             fullWidth
           />
         </div>

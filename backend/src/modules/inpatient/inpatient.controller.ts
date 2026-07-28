@@ -1,3 +1,4 @@
+//backend/src/modules/inpatient/inpatient.controller.ts
 import { Request, Response } from "express";
 import {
   changeBed,

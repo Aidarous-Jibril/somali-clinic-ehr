@@ -1,3 +1,4 @@
+//src/components/Sidebar.tsx
 import { NavLink } from "react-router-dom";
 import React from "react";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
@@ -5,6 +6,9 @@ import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
 import LogoutIcon from "@mui/icons-material/Logout";
 import LockIcon from "@mui/icons-material/Lock";
 import Tooltip from "@mui/material/Tooltip";
+import { useAuth } from "../context/AuthContext";
+import { hasPermission } from "../lib/rbac";
+
 
 const navLinkClass = "block rounded px-3 py-2 text-sm hover:bg-blue-800 transition-colors";
 const activeClass = "bg-blue-900";
@@ -23,46 +27,77 @@ const Sidebar: React.FC<Props> = ({
   keepWindow = true,
   onToggleKeepWindow,
 }) => {
+    const { user, logout } = useAuth();
   return (
     <nav className="h-full flex flex-col px-4 py-3">
       <div className="mb-6 text-lg font-semibold">Somali Clinic EHR</div>
 
       <ul className="space-y-1">
+        {hasPermission(user, "dashboard:view") && (
+          <li>
+            <NavLink to="/" end className={({ isActive }) => `${navLinkClass} ${isActive ? activeClass : ""}`}>
+              My Dashboard
+            </NavLink>
+          </li>
+        )}
+        {hasPermission(user, "patients:view") && (
+          <li>
+            <NavLink to="/patients" className={({ isActive }) => `${navLinkClass} ${isActive ? activeClass : ""}`}>
+              Patients
+            </NavLink>
+          </li>
+        )}
+        {hasPermission(user, "appointments:view") && (
+          <li>
+            <NavLink to="/appointments" className={({ isActive }) => `${navLinkClass} ${isActive ? activeClass : ""}`}>
+              Appointments
+            </NavLink>
+          </li>
+        )}
+
+    
+        {hasPermission(user, "unit:view") && (
+          <li>
+            <NavLink to="/unit-overview" className={({ isActive }) => `${navLinkClass} ${isActive ? activeClass : ""}`}>
+              Unit overview
+            </NavLink>
+          </li>
+        )}
+        
+       {hasPermission(user, "sampling:view") && (
         <li>
-          <NavLink to="/" end className={({ isActive }) => `${navLinkClass} ${isActive ? activeClass : ""}`}>
-            My Dashboard
+          <NavLink
+            to="/laboratory"
+            className={({ isActive }) =>
+              `${navLinkClass} ${isActive ? activeClass : ""}`
+            }
+          >
+            Laboratory
           </NavLink>
         </li>
+      )}
 
+      {hasPermission(user, "radiology:view") && (
         <li>
-          <NavLink to="/patients" className={({ isActive }) => `${navLinkClass} ${isActive ? activeClass : ""}`}>
-            Patients
+          <NavLink
+            to="/radiology"
+            className={({ isActive }) =>
+              `${navLinkClass} ${isActive ? activeClass : ""}`
+            }
+          >
+            Radiology
           </NavLink>
         </li>
+      )}
 
-        <li>
-          <NavLink to="/appointments" className={({ isActive }) => `${navLinkClass} ${isActive ? activeClass : ""}`}>
-            Appoinments
-          </NavLink>
-        </li>
-
-        <li>
-          <NavLink to="/unit-overview" className={({ isActive }) => `${navLinkClass} ${isActive ? activeClass : ""}`}>
-            Unit overview
-          </NavLink>
-        </li>
-
-        <li>
-          <NavLink to="/sampling-data" className={({ isActive }) => `${navLinkClass} ${isActive ? activeClass : ""}`}>
-            Sampling data
-          </NavLink>
-        </li>
-
+      {hasPermission(user, "consents:view") && (
         <li>
           <NavLink to="/consent-management" className={({ isActive }) => `${navLinkClass} ${isActive ? activeClass : ""}`}>
             Consent management
           </NavLink>
         </li>
+      )}
+
       </ul>
 
       {/* Bottom "Cosmic-like" icons area */}
@@ -95,7 +130,7 @@ const Sidebar: React.FC<Props> = ({
           </Tooltip>
 
           <Tooltip title="Logout">
-            <button type="button" className="rounded p-2 hover:bg-blue-800">
+            <button type="button" onClick={logout} className="rounded p-2 hover:bg-blue-800">
               <LogoutIcon fontSize="medium" />
             </button>
           </Tooltip>

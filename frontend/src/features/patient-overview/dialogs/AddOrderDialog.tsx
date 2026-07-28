@@ -15,8 +15,10 @@ import {
   Divider,
 } from "@mui/material";
 
+
 import type { Encounter, Order } from "../types";
 import { useAuth } from "../../../context/AuthContext";
+import { usePerformerUnits } from "../../../hooks/orders/usePerformerUnits";
 
 /* ================= ANALYSIS OPTIONS ================= */
 const ANALYSIS_BY_CATEGORY: Record<string, string[]> = {
@@ -35,6 +37,7 @@ type OrderFormState = {
   plannedDate?: string;
   requester?: string;
   orderingUnit?: string;
+  performerUnitId?: string;
   comment?: string;
 };
 
@@ -68,7 +71,7 @@ export const AddOrderDialog: React.FC<Props> = ({
     orderingUnit: "",
     comment: "",
   });
-
+  const { data: performerUnits = [] } = usePerformerUnits( form.category.toLowerCase());
   /* ================= PREFILL ================= */
   useEffect(() => {
     if (!open) return;
@@ -107,9 +110,9 @@ export const AddOrderDialog: React.FC<Props> = ({
   }, [form.category]);
 
   /* ================= VALIDATION ================= */
-  const canSave =
-    !!form.category?.trim() &&
-    !!form.name?.trim();
+  const performerUnitRequired = performerUnits.length > 0;
+
+  const canSave = !!form.category.trim() && !!form.name.trim() && ( !performerUnitRequired || !!form.performerUnitId );
 
   /* ================= HANDLERS ================= */
   const setField =
@@ -122,9 +125,8 @@ export const AddOrderDialog: React.FC<Props> = ({
     setForm((prev) => ({
       ...prev,
       category,
-      name: ANALYSIS_BY_CATEGORY[category]?.includes(prev.name)
-        ? prev.name
-        : "",
+      performerUnitId: "",
+      name: ANALYSIS_BY_CATEGORY[category]?.includes(prev.name) ? prev.name : "",
     }));
   };
 
@@ -152,7 +154,7 @@ export const AddOrderDialog: React.FC<Props> = ({
       <DialogContent sx={{ pt: 1 }}>
         <Grid container spacing={3}>
           {/* LEFT */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Stack spacing={2}>
               <TextField
                 label="Category"
@@ -190,20 +192,43 @@ export const AddOrderDialog: React.FC<Props> = ({
                 size="small"
                 value={form.date}
                 onChange={setField("date")}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{
+                  inputLabel: {
+                    shrink: true,
+                  },
+                }}
                 disabled={readOnly}
               />
             </Stack>
           </Grid>
 
           {/* RIGHT */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Stack spacing={2}>
               <Typography variant="subtitle2">Order context</Typography>
 
               <TextField label="Requester" size="small" value={form.requester} disabled />
               <TextField label="Unit" size="small" value={form.orderingUnit} disabled />
-
+              
+              {performerUnits.length > 0 && (
+                <TextField
+                  label="Performing unit"
+                  size="small"
+                  select
+                  value={form.performerUnitId ?? ""}
+                  onChange={setField("performerUnitId")}
+                  disabled={readOnly}
+                >
+                  {performerUnits.map((unit: any) => (
+                    <MenuItem
+                      key={unit.id}
+                      value={unit.id}
+                    >
+                      {unit.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
               <Divider />
 
               <TextField
@@ -212,7 +237,11 @@ export const AddOrderDialog: React.FC<Props> = ({
                 size="small"
                 value={form.plannedDate}
                 onChange={setField("plannedDate")}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{
+                  inputLabel: {
+                    shrink: true,
+                  },
+                }}
                 disabled={readOnly}
               />
 

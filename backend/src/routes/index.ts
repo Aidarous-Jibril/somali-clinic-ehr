@@ -22,6 +22,10 @@ import consentRoutes from "../modules/consent/consent.routes.js";
 import medicationDoseRoutes from "../modules/medication-dose/medication-dose.routes.js";
 import nutritionProductRoutes from "../modules/nutrition-product/nutrition-product.routes.js";
 import samplesRoutes from "../modules/sampling/sampling.routes.js";
+import dashboardRoutes from "../modules/dashboard/dashboard.routes.js";
+import radiologyRoutes from "../modules/radiology/radiology.routes.js";
+import laboratoryRoutes from "../modules/laboratory/laboratory.routes.js";
+import pharmacyRoutes from "../modules/pharmacy/pharmacy.routes.js";
 
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 
@@ -57,5 +61,9 @@ router.use("/consents", consentRoutes);
 router.use("/", medicationDoseRoutes);
 router.use("/nutrition-products", nutritionProductRoutes);
 router.use("/samples", samplesRoutes);
+router.use("/dashboard", dashboardRoutes);
+router.use("/radiology", radiologyRoutes);
+router.use("/laboratory", laboratoryRoutes);
+router.use("/pharmacy", pharmacyRoutes);
 
 export default router;

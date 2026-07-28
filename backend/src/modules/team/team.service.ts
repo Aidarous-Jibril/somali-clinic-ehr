@@ -28,9 +28,19 @@ export const createTeam = async ( data: { name: string; clinicId: string; unitId
 
   const unit = await repo.findUnitById(data.unitId);
 
-  if (!unit) throw new Error("Unit not found");
+  if (!unit) 
+    throw new Error("Unit not found");
 
-  if (unit.clinicId !== data.clinicId) throw new Error("Unit does not belong to clinic");
-  
-  return repo.insertTeam(data);
+  if (unit.clinicId !== data.clinicId) 
+    throw new Error("Unit does not belong to clinic");
+
+  const existingTeam = await repo.findTeamByName( data.unitId, data.name );
+
+  if (existingTeam)
+    throw new Error( "A team with this name already exists in this unit");
+
+  return repo.insertTeam({
+      ...data,
+      name: data.name.trim(),
+  });
 };

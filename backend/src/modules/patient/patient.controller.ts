@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import * as service from "./patient.service.js";
-import { Roles } from "../../constants/roles.js";
 
 export const createPatient = async ( req: Request, res: Response) => {
   try {

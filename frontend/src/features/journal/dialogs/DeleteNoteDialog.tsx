@@ -38,7 +38,6 @@ export function DeleteNoteDialog({
           </button>
           <button
             onClick={() => {
-              console.log("DELETE CLICKED");
               onConfirm();
             }}
             className="rounded px-4 py-2 text-sm bg-red-600 text-white hover:bg-red-700"

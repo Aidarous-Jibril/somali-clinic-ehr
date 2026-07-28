@@ -19,7 +19,7 @@ export type AuthUser = {
 type AuthContextType = {
   user: AuthUser | null;
   token: string | null;
-  unitId: string | null; // used across app
+  unitId: string | null; 
   login: (data: { token: string; staff: AuthUser }) => void;
   logout: () => void;
 };
@@ -63,7 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         token,
-        unitId: user?.unitId ?? null, // 🔥 replaces getAuthUnitId()
+        unitId: user?.unitId ?? null, 
         login,
         logout,
       }}

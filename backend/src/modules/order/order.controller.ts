@@ -66,15 +66,10 @@ export const listOrdersByPatient = async (req: Request, res: Response) => {
   return res.json(orders);
 };
 
-export const listLabOrders = async (req: Request, res: Response) => {
-  const orders = await service.listLabOrders(req.user!.clinicId);
-  return res.json(orders);
-};
 
 // ---------------------
 // LIFECYCLE
 // ---------------------
-
 // ordered → in_progress
 export const startOrder = async (req: Request, res: Response) => {
   const id = String(req.params.id);
@@ -148,4 +143,16 @@ export const completeOrder = async (req: Request, res: Response) => {
 
   const updated = await service.completeOrder(id);
   return res.json(updated);
+};
+
+export const listPerformerUnits = async ( req: Request, res: Response ) => {
+  const clinicId = req.user!.clinicId;
+
+  const category = req.query.category as | "chemistry" | "microbiology" | "radiology" | "procedure";
+
+  if (!category) 
+    return res.status(400).json({ message: "category query parameter is required",});
+
+  const units = await service.listPerformerUnits( clinicId, category);
+  return res.json(units);
 };

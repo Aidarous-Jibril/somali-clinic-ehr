@@ -20,6 +20,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCreateMedication } from "../../../hooks/medications/useCreateMedication";
 import { useCreateVaccination } from "../../../hooks/vaccination/useCreateVaccination";
 import { useAuth } from "../../../context/AuthContext";
+import type { MedicationFormValues } from "../../../schemas/medication.schema";
 
 /* ========= TYPES ========= */
 type Props = {
@@ -37,7 +38,6 @@ export const AddTreatmentDialog: React.FC<Props> = ({
   onClose,
   type,
   patientId,
-  clinicId,
   encounterId,
 }) => {
   const qc = useQueryClient();
@@ -77,7 +77,7 @@ export const AddTreatmentDialog: React.FC<Props> = ({
   const handleSubmit = () => {
     if (!canSave) return;
 
-    // 🔐 Healthcare rule
+    // Healthcare rule
     if (!encounterId) {
       toast.error("Start an encounter before registering treatment");
       return;
@@ -86,7 +86,6 @@ export const AddTreatmentDialog: React.FC<Props> = ({
     if (isVaccination) {
       createVaccinationMutation.mutate(
         {
-          clinicId,
           patientId,
           encounterId,
           vaccineName: form.name,
@@ -107,12 +106,11 @@ export const AddTreatmentDialog: React.FC<Props> = ({
     } else {
       createMedicationMutation.mutate(
         {
-          clinicId,
           patientId,
           encounterId,
           name: form.name,
           dose: form.dose,
-          frequency: form.frequency, 
+          frequency: form.frequency as MedicationFormValues["frequency"],
           strength: form.strength,
           notes: form.notes,
         },
@@ -146,7 +144,7 @@ export const AddTreatmentDialog: React.FC<Props> = ({
       {/* ===== CONTENT ===== */}
       <DialogContent sx={{ pt: 1 }}>
         <Grid container spacing={3}>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Stack spacing={2}>
               {/* Section */}
               <Typography variant="subtitle2" sx={{ color: "text.secondary" }}>
@@ -199,7 +197,7 @@ export const AddTreatmentDialog: React.FC<Props> = ({
                   onChange={(e) =>
                     setForm((prev) => ({
                       ...prev,
-                      frequency: e.target.value,
+                      frequency: e.target.value as MedicationFormValues["frequency"],
                     }))
                   }
                   fullWidth

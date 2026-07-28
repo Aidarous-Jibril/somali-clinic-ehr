@@ -1,3 +1,4 @@
+//modules/medication/medication.routes.ts
 import { requireRoles } from "../../middlewares/roles.middleware.js";
 import { Roles } from "../../constants/roles.js";
 

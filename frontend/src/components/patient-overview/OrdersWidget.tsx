@@ -4,7 +4,6 @@ import { IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
 import type { Order, OrderCategoryGroup } from "../../features/patient-overview/types";
-import { ORDER_CATEGORY_PREFERENCE } from "../../features/patient-overview/mockData";
 import { useAuth } from "../../context/AuthContext";
 
 import { canEditOrder } from "../../features/patient-overview/permissions/order.permissions";
@@ -18,6 +17,7 @@ import {
 import { useOrderLifecycle } from "../../hooks/orders/useOrderLifecycle";
 import { ResultDialog } from "../../features/patient-overview/dialogs/ResultDialog";
 import { AddButton } from "./common/AddButton";
+import { ORDER_CATEGORY_PREFERENCE } from "../../features/patient-overview/constants";
 
 /* ================= HELPERS ==================== */
 const groupOrdersByCategory = (orders: Order[]): OrderCategoryGroup[] => {

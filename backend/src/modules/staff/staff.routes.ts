@@ -14,7 +14,7 @@ router.post( "/", authMiddleware, requireRoles( Roles.SuperAdmin, Roles.ClinicAd
 // 🔐 PROTECTED ROUTES
 router.use(authMiddleware);
 
-router.get( "/", requireRoles( Roles.SuperAdmin, Roles.ClinicAdmin ), controller.listStaff );
+router.get( "/", requireRoles( Roles.SuperAdmin, Roles.ClinicAdmin,  Roles.Doctor, Roles.Nurse ), controller.listStaff );
 router.get( "/unit/:unitId", requireRoles( Roles.SuperAdmin, Roles.ClinicAdmin, Roles.Doctor, Roles.Nurse ), controller.listByUnit );
 
 export default router;

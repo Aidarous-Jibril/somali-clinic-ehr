@@ -1,3 +1,4 @@
+//backend/src/modules/inpatient/inpatient.repository.ts
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../config/prisma.js";
 
@@ -8,6 +9,7 @@ export const findActiveContacts = async ( clinicId: string ) => {
       include: {
         patient: true,
         unit: true,
+        team: true,
         encounter: {
           include: {
             clinicalParameterEntries: {
@@ -48,6 +50,7 @@ export const findStayById = ( stayId: string, clinicId: string) =>
     include: {
       patient: true,
       unit: true,
+      team: true,
       encounter: {
         include: {
           clinicalParameterEntries: {
@@ -250,7 +253,7 @@ export const createStayFromReferral = ( referral: any ) => {
       encounterId: referral.encounterId, 
       unitId: referral.toUnitId,
       bedCode,
-      team: "",
+      teamId: null,
     },
   });
 };
@@ -346,20 +349,14 @@ export const createAdmission = async ( data: any ) => {
         patient =
           await tx.patient.create({
             data: {
-              clinicId:
-                data.clinicId,
+              clinicId: data.clinicId,
               mrn,
               firstName,
               lastName,
-              phone:
-                identifier || null,
-              nationalId:
-                identifier || null,
+              phone: identifier || null,
+              nationalId: identifier || null,
               gender: "unknown",
-              dateOfBirth:
-                new Date(
-                  "2000-01-01"
-                ),
+              dateOfBirth: new Date("2000-01-01"),
             },
           });
       }
@@ -404,45 +401,35 @@ export const createAdmission = async ( data: any ) => {
       const encounter =
         await tx.encounter.create({
           data: {
-            clinicId:
-              data.clinicId,
-            patientId:
-              patient.id,
+            clinicId: data.clinicId,
+            patientId: patient.id,
             type: "inpatient",
             status: "open",
-            startedAt:
-              admittedAt,
+            startedAt: admittedAt,
           },
         });
 
       const stay =
         await tx.inpatientStay.create({
           data: {
-            clinicId:
-              data.clinicId,
-            patientId:
-              patient.id,
-            encounterId:
-              encounter.id,
+            clinicId: data.clinicId,
+            patientId: patient.id,
+            encounterId: encounter.id,
             unitId: unit.id,
             bedCode: data.bed,
-            team: data.team,
+            teamId: data.teamId,
+            // team: data.team,
             admittedAt,
-            ews: data.ews
-              ? Number(data.ews)
-              : null,
+            ews: data.ews ? Number(data.ews) : null,
           },
         });
 
       if (data.ews) {
         await tx.clinicalParameterEntry.create({
           data: {
-            encounterId:
-              encounter.id,
+            encounterId: encounter.id,
             name: "NEWS2",
-            value: String(
-              data.ews
-            ),
+            value: String( data.ews),
           },
         });
       }

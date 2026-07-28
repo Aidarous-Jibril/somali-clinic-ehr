@@ -1,3 +1,4 @@
+import { ReferralRole } from "@prisma/client";
 import { prisma } from "../../config/prisma.js";
 
 export const createStaff = async (data: any) => {
@@ -85,23 +86,41 @@ export const findStaffByEmail = (clinicCode: string, email: string) => {
   });
 };
 
-export const findAll = (clinicId: string) => {
-  return prisma.staffAccount.findMany({
-    where: { clinicId },
-    include: {
-      person: true,
-      assignments: {
-        include: {
-          unit: true,
-          team: true,
+  export const findAll = (
+    clinicId: string,
+    role?: ReferralRole
+  ) => {
+    return prisma.staffAccount.findMany({
+      where: {
+        clinicId,
+
+        ...(role && {
+          assignments: {
+            some: {
+              role,
+            },
+          },
+        }),
+      },
+
+      include: {
+        person: true,
+
+        assignments: {
+          where: role ? { role } : undefined,
+
+          include: {
+            unit: true,
+            team: true,
+          },
         },
       },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-};
+
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+  };
 
 export const findByUnit = (unitId: string) => {
   return prisma.staffAssignment.findMany({

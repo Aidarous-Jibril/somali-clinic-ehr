@@ -1,5 +1,4 @@
 // src/features/patient/dialogs/CreatePatientDialog.tsx
-
 import { useMemo, useState, useEffect } from "react";
 
 import CloseIcon from "@mui/icons-material/Close";
@@ -11,20 +10,16 @@ import WcIcon from "@mui/icons-material/Wc";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import FingerprintIcon from "@mui/icons-material/Fingerprint";
 
+import type { CreatePatientPayload, } from "../types";
+
 type Props = {
   open: boolean;
   loading?: boolean;
   onClose: () => void;
-  onSave: (data: {
-    firstName: string;
-    lastName: string;
-    gender: string;
-    dateOfBirth: string;
-    phone?: string;
-    email?: string;
-    nationalId?: string;
-  }) => void;
+  onSave: (data: Omit<CreatePatientPayload, "clinicId">) => void;
 };
+
+type FormData = Omit<CreatePatientPayload, "clinicId">;
 
 export default function CreatePatientDialog({
   open,
@@ -32,7 +27,7 @@ export default function CreatePatientDialog({
   onClose,
   onSave,
 }: Props) {
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<FormData>({
     firstName: "",
     lastName: "",
     gender: "male",
@@ -44,10 +39,10 @@ export default function CreatePatientDialog({
 
   const [touched, setTouched] = useState(false);
 
-  // Reset form when dialog opens
   useEffect(() => {
     if (open) {
       setTouched(false);
+
       setForm({
         firstName: "",
         lastName: "",
@@ -60,8 +55,11 @@ export default function CreatePatientDialog({
     }
   }, [open]);
 
-  const update = (key: string, value: string) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+  const update = <K extends keyof FormData>( key: K, value: FormData[K] ) => {
+    setForm((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
   };
 
   const age = useMemo(() => {
@@ -114,10 +112,8 @@ export default function CreatePatientDialog({
         : "border-gray-300 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
     }`;
 
-  const labelClass =
-    "mb-1 flex items-center gap-2 text-sm font-medium text-gray-700";
+  const labelClass = "mb-1 flex items-center gap-2 text-sm font-medium text-gray-700";
 
-  // ✅ AFTER hooks
   if (!open) return null;
 
   return (
@@ -134,6 +130,7 @@ export default function CreatePatientDialog({
               <h2 className="text-lg font-semibold">
                 Register New Patient
               </h2>
+
               <p className="text-xs text-blue-100">
                 Create patient record in clinic registry
               </p>
@@ -151,7 +148,6 @@ export default function CreatePatientDialog({
         {/* Body */}
         <div className="max-h-[75vh] overflow-y-auto bg-gray-50 p-6">
           <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-            {/* Left */}
             <div className="space-y-6">
               <section className="rounded-xl border bg-white p-5 shadow-sm">
                 <h3 className="mb-4 text-sm font-semibold uppercase text-gray-500">
@@ -203,7 +199,7 @@ export default function CreatePatientDialog({
                       className={inputClass()}
                       value={form.gender}
                       onChange={(e) =>
-                        update("gender", e.target.value)
+                        update("gender", e.target.value as FormData["gender"])
                       }
                     >
                       <option value="male">Male</option>
@@ -246,25 +242,20 @@ export default function CreatePatientDialog({
 
                     <input
                       className={inputClass()}
-                      value={form.phone}
-                      onChange={(e) =>
-                        update("phone", e.target.value)
-                      }
+                      value={form.phone ?? ""}
+                      onChange={(e) => update("phone", e.target.value) }
                     />
                   </div>
 
                   <div>
                     <label className={labelClass}>
-                      <MailOutlineIcon fontSize="small" />
-                      Email
+                      <MailOutlineIcon fontSize="small" /> Email
                     </label>
 
                     <input
                       className={inputClass()}
-                      value={form.email}
-                      onChange={(e) =>
-                        update("email", e.target.value)
-                      }
+                      value={form.email ?? ""}
+                      onChange={(e) => update("email", e.target.value) }
                     />
                   </div>
                 </div>
@@ -282,7 +273,7 @@ export default function CreatePatientDialog({
 
                 <input
                   className={inputClass()}
-                  value={form.nationalId}
+                  value={form.nationalId ?? ""}
                   onChange={(e) =>
                     update("nationalId", e.target.value)
                   }
@@ -290,7 +281,6 @@ export default function CreatePatientDialog({
               </section>
             </div>
 
-            {/* Right */}
             <div className="space-y-6">
               <section className="rounded-xl border bg-white p-5 shadow-sm">
                 <h3 className="mb-4 text-sm font-semibold uppercase text-gray-500">
@@ -304,14 +294,10 @@ export default function CreatePatientDialog({
                   </div>
 
                   <div>
-                    <p className="font-semibold">
-                      {form.firstName || "First"}{" "}
-                      {form.lastName || "Last"}
-                    </p>
+                    <p className="font-semibold"> {form.firstName || "First"}{" "} {form.lastName || "Last"} </p>
 
                     <p className="text-sm text-gray-500">
-                      {form.gender}
-                      {age ? ` • ${age}` : ""}
+                      {form.gender} {age ? ` • ${age}` : ""}
                     </p>
                   </div>
 

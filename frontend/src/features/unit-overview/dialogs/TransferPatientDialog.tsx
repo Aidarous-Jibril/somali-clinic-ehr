@@ -221,7 +221,11 @@ export default function TransferPatientDialog({
               size="small"
               fullWidth
               value={form.fromFacility}
-              InputProps={{ readOnly: true }}
+              slotProps={{
+                input: {
+                  readOnly: true,
+                },
+              }}
             />
 
             <TextField
@@ -229,7 +233,11 @@ export default function TransferPatientDialog({
               size="small"
               fullWidth
               value={form.fromUnit}
-              InputProps={{ readOnly: true }}
+              slotProps={{
+                input: {
+                  readOnly: true,
+                },
+              }}
             />
           </div>
 

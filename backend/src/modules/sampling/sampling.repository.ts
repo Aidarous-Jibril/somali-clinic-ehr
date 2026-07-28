@@ -1,3 +1,4 @@
+//modules/sampling/sampling.repository.ts
 import { prisma } from "../../config/prisma.js";
 
 export const createSample = (data: any) => {

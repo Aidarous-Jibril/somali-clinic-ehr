@@ -1,8 +1,12 @@
-//src/api/staff.ts
+//src/api/staff.api.ts
 import { api } from "./client";
 
-export const fetchStaff = async () => {
-  const { data } = await api.get("/staff");
+
+export const fetchStaff = async ( role?: string ) => {
+  const { data } = await api.get("/staff", {
+    params: { role },
+  });
+
   return data;
 };
 

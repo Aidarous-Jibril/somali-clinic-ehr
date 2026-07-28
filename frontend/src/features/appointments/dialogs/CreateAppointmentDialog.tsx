@@ -14,7 +14,7 @@ import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import dayjs, { Dayjs } from "dayjs";
 
 import { toast } from "react-toastify";
-import { createAppointment } from "../../../api/appointments";
+import { createAppointment } from "../../../api/appointments.api";
 
 // TYPES
 type Patient = {
@@ -51,7 +51,7 @@ export const CreateAppointmentDialog = ({
   const [scheduledAt, setScheduledAt] = useState<Dayjs | null>(dayjs());
   const [notes, setNotes] = useState("");
   const [duration, setDuration] = useState<number>(30); 
-console.log("selectedDoctor:", selectedDoctor)
+
   // CREATE HANDLER
   const handleCreate = async () => {
     if (!selectedPatient || !selectedDoctor || !scheduledAt) {

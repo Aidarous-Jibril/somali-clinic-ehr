@@ -268,40 +268,16 @@ export function NewOrdersView({
     | Partial<MedicationFormValues>
     | undefined = selected
     ? {
-        name:
-          selected.name ||
-          selected.product ||
-          "",
-        strength:
-          selected.strengthValue ||
-          selected.strength ||
-          "",
-        dose:
-          selected.dose ||
-          selected.dosing ||
-          "",
-        dosingText:
-          selected.dosingText ||
-          selected.dose ||
-          selected.dosing ||
-          "",
-        indication:
-          selected.indication ||
-          selected.treatmentReason ||
-          "",
-        frequency:
-          selected.frequency ||
-          "once_daily",
-        groupType:
-          selected.groupType ||
-          "current",
-        form:
-          selected.formValue ||
-          selected.form ||
-          "",
+        name: selected.name || selected.product || "",
+        strength: selected.strengthValue || selected.strength || "",
+        dose: selected.dose || selected.dosing || "",
+        dosingText: selected.dosingText || selected.dose || selected.dosing || "",
+        indication: selected.indication || selected.treatmentReason || "",
+        frequency: selected.frequency || "once_daily",
+        groupType: selected.groupType || "current",
+        form: selected.formValue || selected.form || "",
         route: selected.route,
-        notes:
-          selected.notes || "",
+        notes: selected.notes || "",
       }
     : undefined;
 

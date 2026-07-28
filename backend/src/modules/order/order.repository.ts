@@ -1,5 +1,5 @@
 import { prisma } from "../../config/prisma.js";
-import { OrderCategory, OrderStatus } from "@prisma/client";
+import { OrderCategory, UnitType } from "@prisma/client";
 
 export const createOrder = (data: {
   clinicId: string;
@@ -23,7 +23,6 @@ export const createOrder = (data: {
     },
   });
 };
-
 
 export const updateOrder = (id: string, data: any) => {
   return prisma.order.update({
@@ -83,51 +82,29 @@ export const findResultByOrderId = (orderId: string) => {
   });
 };
 
-// order.repository.ts
-export const findLabOrders = (clinicId: string) => {
-  return prisma.order.findMany({
-    where: {
-      clinicId,
-
-      category: {
-        in: ["chemistry", "microbiology"],
-      },
-
-      status: {
-        in: ["ordered", "in_progress",  "awaiting_result",],
-      },
-    },
-
-    include: {
-      patient: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-        },
-      },
-
-      samples: {
-        select: {
-          id: true,
-          status: true,
-          sampleType: true,
-          barcode: true,
-        },
-      },
-    },
-
-    orderBy: {
-      orderedAt: "asc",
-    },
-  });
-};
-
 export const findPatientById = (patientId: string, clinicId: string) => {
   return prisma.patient.findFirst({
     where: {
       id: patientId,
       clinicId,
+    },
+  });
+};
+
+export const findPerformerUnits = ( clinicId: string, type: UnitType ) => {
+  return prisma.unit.findMany({
+    where: {
+      clinicId,
+      type,
+    },
+
+    select: {
+      id: true,
+      name: true,
+    },
+
+    orderBy: {
+      name: "asc",
     },
   });
 };

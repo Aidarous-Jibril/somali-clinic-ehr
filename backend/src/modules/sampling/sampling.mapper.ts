@@ -1,3 +1,4 @@
+//modules/sampling/sampling.mapper.ts
 export const toSamplingWorklistItem = (sample: any) => {
   const clinicName = sample.order?.clinic?.name;
   const performerUnitName = sample.order?.performerUnit?.name;

@@ -1,3 +1,4 @@
+//src/hooks/medications/useStopMedication.ts
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { stopMedication } from "../../api/medication.api";
 

@@ -1,3 +1,4 @@
+//modules/sampling/sampling.controller.ts
 import { Request, Response } from "express";
 import { prisma } from "../../config/prisma.js";
 import * as service from "./sampling.service.js";

@@ -1,3 +1,4 @@
+// src/pages/AppointmentsPage.tsx
 import { useState } from "react";
 import { Button } from "@mui/material";
 
@@ -11,16 +12,10 @@ import { usePatients } from "../hooks/patient/usePatients";
 
 const AppointmentsPage = () => {
   const { appointments, markArrived, start, complete, cancel, refetch } = useAppointments();
-const { data: staff = [] } = useStaff();
-const { data: patients = [] } = usePatients();
-console.log("staff:", staff)
-  // filter doctors
-  const doctors = staff
-    .filter((s) => s.role === "Doctor")
-    .map((s) => ({
-      id: s.id,
-      name: s.name,
-    }));
+
+  const { data: doctors = [] } = useStaff("Doctor");
+  const { data: patients = [] } = usePatients();
+  
   const [open, setOpen] = useState(false);
 
   return (

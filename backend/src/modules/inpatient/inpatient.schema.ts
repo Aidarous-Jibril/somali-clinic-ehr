@@ -1,3 +1,4 @@
+//backend/src/modules/inpatient/inpatient.schema.ts
 export type ActiveContactDto = {
   id: string;
   patientId?: string;
@@ -43,7 +44,8 @@ export const mapActiveContact = (stay: any): ActiveContactDto => {
     ews: news ? Number(news.value) : stay.ews ?? undefined,
     ward: stay.unit?.name ?? "",
     startDate: stay.admittedAt.toISOString(),
-    team: stay.team ?? "",
+    // team: stay.team ?? "",
+    team: stay.team?.name ?? "",
     technicalUnit: stay.technicalUnit ?? "",
     absence: stay.absence ?? "",
     activity: stay.activity ?? "",

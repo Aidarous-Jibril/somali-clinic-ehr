@@ -37,7 +37,7 @@ import PlannedDischargeDialog from "../features/unit-overview/dialogs/PlannedDis
 import ReserveBedDialog from "../features/unit-overview/dialogs/ReserveBedDialog";
 import TransferPatientDialog from "../features/unit-overview/dialogs/TransferPatientDialog";
 
-import { allBeds, bedOptions } from "../features/unit-overview/unitOverviewMockData";
+// import { allBeds, bedOptions } from "../features/unit-overview/unitOverviewMockData";
 
 import type { UnitOverviewTabKey } from "../features/unit-overview/unitOverviewConstants";
 import type {
@@ -101,8 +101,8 @@ export default function UnitOverviewPage() {
 
   // Data
   const { data: realUnits = [] } = useUnits(user?.clinicId);
-  const selectedUnit = realUnits.find((u: any) => u.name === selectedWard);
-
+  const selectedUnit = realUnits.find((u: any) => u.name === selectedWard) || realUnits[0];
+  
   const { data: inpatients = [], isLoading, refetch } = useActiveContacts();
   const { data: transfers = [] } = useTransfers(user?.clinicId, user?.unitId);
   const { data: teams = [] } = useTeams(user?.clinicId, selectedUnit?.id);
@@ -157,50 +157,53 @@ export default function UnitOverviewPage() {
   // ------------------------------------------------------
   // Derived data
   // ------------------------------------------------------
+const allBeds = useMemo(() => {
+  if (!selectedUnit?.bedCapacity) return [];
 
-  const occupiedBeds = useMemo(
-    () => new Set(inpatients.map((p) => p.bed)),
-    [inpatients]
+  return Array.from(
+    { length: selectedUnit.bedCapacity },
+    (_, i) => `Bed-${i + 1}`
   );
+}, [selectedUnit]);
 
-  const admissionBeds: BedSelectOption[] = useMemo(
-    () =>
-      allBeds.map((bed) => ({
-        id: bed,
-        label: bed,
-        disabled: occupiedBeds.has(bed),
-      })),
-    [occupiedBeds]
-  );
+const occupiedBeds = useMemo(
+  () => new Set(inpatients.map((p) => p.bed)),
+  [inpatients]
+);
+const admissionBeds: BedSelectOption[] = useMemo(
+  () =>
+    allBeds.map((bed) => ({
+      id: bed,
+      label: bed,
+      disabled: occupiedBeds.has(bed),
+    })),
+  [allBeds, occupiedBeds]
+);
 
-  const reserveBeds: BedOption[] = useMemo(
-    () =>
-      bedOptions.map((bed) => ({
-        id: bed.code,
-        label: bed.code,
-        status:
-          bed.status === "Available"
-            ? "free"
-            : bed.status === "Reserved"
-            ? "reserved"
-            : "occupied",
-      })),
-    []
-  );
+const reserveBeds: BedOption[] = useMemo(
+  () =>
+    allBeds.map((bed) => ({
+      id: bed,
+      label: bed,
+      status: occupiedBeds.has(bed) ? "occupied" : "free",
+    })),
+  [allBeds, occupiedBeds]
+);
 
-  const changeBeds: BedChangeOption[] = useMemo(
-    () =>
-      allBeds.map((bed) => ({
-        id: bed,
-        label: bed,
-        status: inpatients.some(
+const changeBeds: BedChangeOption[] = useMemo(
+  () =>
+    allBeds.map((bed) => ({
+      id: bed,
+      label: bed,
+      status:
+        inpatients.some(
           (p) => p.bed === bed && selectedPatient?.bed !== bed
         )
           ? "occupied"
           : "free",
-      })),
-    [inpatients, selectedPatient]
-  );
+    })),
+  [allBeds, inpatients, selectedPatient]
+);
 
   // ------------------------------------------------------
   // Actions

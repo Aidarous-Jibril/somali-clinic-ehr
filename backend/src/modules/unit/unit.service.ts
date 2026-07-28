@@ -13,7 +13,15 @@ export const createUnit = async ( input: any, user?: any ) => {
 };
 
 export const listUnitsByClinic = ( clinicId: string, user?: any ) => {
-  if ( user?.role !== Roles.SuperAdmin && clinicId !== user?.clinicId ) 
+
+  if (user?.role === Roles.SuperAdmin)
+    return repo.findByClinic(clinicId);
+
+  if ( user?.role === Roles.Doctor || user?.role === Roles.Nurse ) {
+    return repo.findByClinic(clinicId);
+  }
+
+  if (clinicId !== user?.clinicId)
     throw new Error( "You can only view units from your own clinic" );
 
   return repo.findByClinic(clinicId);

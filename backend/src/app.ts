@@ -12,4 +12,6 @@ app.use(express.json());
 app.use("/api", routes);
 app.use(errorMiddleware);
 
+app.use( "/uploads", express.static("uploads") );
+
 export default app;

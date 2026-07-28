@@ -1,4 +1,5 @@
 // fluidBalance.service.ts
+import { Roles } from "../../constants/roles.js";
 import * as repo from "./fluidBalance.repository.js";
 import { CreateFluidBalanceInput, UpdateFluidBalanceInput } from "./fluidBalance.schema.js";
 
@@ -7,7 +8,7 @@ export const registerFluidBalance = async ( input: CreateFluidBalanceInput, user
 
   if (!patient) throw new Error("Patient not found");
   
-  if (user.role !== "SuperAdmin" && patient.clinicId !== user.clinicId) throw new Error("Forbidden");
+  if (user.role !==  Roles.SuperAdmin  && patient.clinicId !== user.clinicId) throw new Error("Forbidden");
   
   const intake =
     input.oralMl +
@@ -55,7 +56,7 @@ export const updateFluidBalance = async ( id: string, input: UpdateFluidBalanceI
   if (!existing.details)
       throw new Error("Fluid balance details not found");
 
-  if (user.role !== "SuperAdmin" && existing.clinicId !== user.clinicId)
+  if (user.role !==  Roles.SuperAdmin  && existing.clinicId !== user.clinicId)
     throw new Error("Forbidden");
 
   const oralMl = input.oralMl ?? existing.details.oralMl;

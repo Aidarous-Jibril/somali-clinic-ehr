@@ -101,13 +101,23 @@ export const ActiveContactsTable = ({
     [inpatients]
   );
 
-  const beds = useMemo(
-    () =>
-      showEmptyBeds
-        ? allBeds
-        : [...new Set(inpatients.map((p) => p.bed))],
-    [showEmptyBeds, allBeds, inpatients]
-  );
+const beds = useMemo(() => {
+  const occupied = inpatients.map((p) => p.bed);
+
+  if (!showEmptyBeds) {
+    return occupied;
+  }
+
+  const merged = [...allBeds];
+
+  occupied.forEach((bed) => {
+    if (!merged.includes(bed)) {
+      merged.push(bed);
+    }
+  });
+
+  return merged;
+}, [showEmptyBeds, allBeds, inpatients]);
 
   return (
     <div className="overflow-auto rounded border border-gray-300 bg-white">

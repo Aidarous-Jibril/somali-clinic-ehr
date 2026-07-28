@@ -66,6 +66,7 @@ export type SavePlannedDischargePayload = {
 
 export type Inpatient = {
   id: string;
+  patientId?: string;
   encounterId: string;
 
   bed: string;

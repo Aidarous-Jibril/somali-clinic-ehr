@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import * as service from "./vaccination.service.js";
+import { Roles } from "../../constants/roles.js";
 
 export const createVaccination = async (
   req: Request,
@@ -48,7 +49,7 @@ export const listVaccinations = async (
       });
 
     const clinicId =
-      user.role === "SuperAdmin"
+      user.role ===  Roles.SuperAdmin 
         ? undefined
         : user.clinicId;
 
@@ -94,7 +95,7 @@ export const declineVaccination = async (
       });
 
     const clinicId =
-      user.role === "SuperAdmin"
+      user.role ===  Roles.SuperAdmin 
         ? undefined
         : user.clinicId;
 
@@ -129,7 +130,7 @@ export const completeVaccination = async (
       });
 
     const clinicId =
-      user.role === "SuperAdmin"
+      user.role ===  Roles.SuperAdmin 
         ? undefined
         : user.clinicId;
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 
-import { arrivedAppointment, completeAppointment, getAppointments, startAppointment, cancelAppointment } from "../../api/appointments";
+import { arrivedAppointment, completeAppointment, getAppointments, startAppointment, cancelAppointment } from "../../api/appointments.api";
 import type { Appointment } from "../../features/appointments/types";
 
 export const useAppointments = () => {

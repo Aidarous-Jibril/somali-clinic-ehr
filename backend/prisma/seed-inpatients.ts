@@ -121,7 +121,7 @@ const main = async () => {
     activity: "11:00",
   });
 
-  console.log("✅ Inpatients seeded");
+  // console.log("✅ Inpatients seeded");
 };
 
 main()

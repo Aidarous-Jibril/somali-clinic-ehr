@@ -1,3 +1,4 @@
+//modules/medication/medication.controller.ts
 import { Request, Response } from "express";
 import * as service from "./medication.service.js";
 

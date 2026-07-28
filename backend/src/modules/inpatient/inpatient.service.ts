@@ -1,3 +1,4 @@
+//backend/src/modules/inpatient/inpatient.service.ts
 import {
   findActiveContacts,
   updateBed,

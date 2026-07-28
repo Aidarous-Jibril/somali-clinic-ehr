@@ -154,7 +154,11 @@ const AdmitPatientDialog: React.FC<Props> = ({
               size="small"
               value={form.startDate}
               onChange={updateField("startDate")}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{
+                inputLabel: {
+                  shrink: true,
+                },
+              }}
             />
             <TextField
               label="Time"
@@ -162,7 +166,11 @@ const AdmitPatientDialog: React.FC<Props> = ({
               size="small"
               value={form.startTime}
               onChange={updateField("startTime")}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{
+                inputLabel: {
+                  shrink: true,
+                },
+              }}
             />
           </div>
 

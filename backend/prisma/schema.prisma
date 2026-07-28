@@ -1,3 +1,4 @@
+//schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,27 +8,34 @@ datasource db {
 }
 
 model Clinic {
-  id             String          @id @default(uuid())
-  code           String          @unique
-  name           String
-  mrnCounter     Int             @default(0)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  encounters     Encounter[]
-  labResults     LabResult[]
-  medications    Medication[]    @relation("ClinicMedications")
-  patients       Patient[]
-  referrals      Referral[]
-  referralsSent  Referral[]      @relation("ReferralFromClinic")
-  staffAccounts  StaffAccount[]
-  units          Unit[]
-  vaccinations   Vaccination[]
-  orders         Order[]
-  appointments   Appointment[]
-  journalTables  JournalTable[]
-  inpatientStays InpatientStay[]
-  consents       Consent[]
-  teams          Team[]
+  id                    String                 @id @default(uuid())
+  code                  String                 @unique
+  name                  String
+  mrnCounter            Int                    @default(0)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  encounters            Encounter[]
+  labResults            LabResult[]
+  radiologyReports      RadiologyReport[]
+  medications           Medication[]           @relation("ClinicMedications")
+  patients              Patient[]
+  referrals             Referral[]
+  referralsSent         Referral[]             @relation("ReferralFromClinic")
+  staffAccounts         StaffAccount[]
+  units                 Unit[]
+  vaccinations          Vaccination[]
+  orders                Order[]
+  appointments          Appointment[]
+  journalTables         JournalTable[]
+  inpatientStays        InpatientStay[]
+  consents              Consent[]
+  teams                 Team[]
+  medicationProducts    MedicationProduct[]
+  medicationInventories MedicationInventory[]
+  medicationDispensings MedicationDispensing[]
+  suppliers             Supplier[]
+  purchases             Purchase[]
+  stockMovements        StockMovement[]
 }
 
 model Patient {
@@ -48,6 +56,7 @@ model Patient {
   encounters          Encounter[]
   fluidBalanceEntries FluidBalanceEntry[]
   labResults          LabResult[]
+  radiologyReports    RadiologyReport[]
   medications         Medication[]        @relation("PatientMedications")
   clinic              Clinic              @relation(fields: [clinicId], references: [id])
   vaccinations        Vaccination[]
@@ -163,8 +172,9 @@ model Order {
   completedAt     DateTime?
   cancelledAt     DateTime?
 
-  labResults LabResult[]
-  samples    Sample[]
+  labResults      LabResult[]
+  radiologyReport RadiologyReport[]
+  samples         Sample[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -192,6 +202,67 @@ model LabResult {
 
   @@index([patientId])
   @@index([orderId])
+}
+
+model RadiologyReport {
+  id String @id @default(uuid())
+
+  clinicId  String
+  patientId String
+  orderId   String @unique
+
+  clinic  Clinic  @relation(fields: [clinicId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  impression String
+
+  findings String?
+
+  overallResult LabResultFlag
+
+  comment String?
+
+  reportedByAccountId String?
+
+  reportedByAccount StaffAccount? @relation(fields: [reportedByAccountId], references: [id])
+
+  reportedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  images RadiologyImage[]
+
+  @@index([patientId])
+  @@index([clinicId])
+}
+
+model RadiologyImage {
+  id String @id @default(uuid())
+
+  reportId String
+  report   RadiologyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  fileName String
+
+  filePath String
+
+  mimeType String
+
+  fileSize Int?
+
+  viewName String?
+
+  displayOrder Int @default(0)
+
+  uploadedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  @@index([reportId])
+  @@index([displayOrder])
 }
 
 model Medication {
@@ -238,8 +309,9 @@ model Medication {
   administrations MedicationAdministration[]
 
   // Audit
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  medicationDispensings MedicationDispensing[]
 
   @@index([patientId])
   @@index([clinicId])
@@ -371,10 +443,27 @@ model MedicationAdministration {
   @@index([performedAt])
 }
 
+enum UnitType {
+  emergency
+  ward
+  lab
+  radiology
+  surgery
+  operating_room
+  icu
+  outpatient
+  pharmacy
+  administration
+  rehabilitation
+  other
+}
+
 model Unit {
   id                String            @id @default(uuid())
   name              String
+  type              UnitType          @default(other)
   clinicId          String
+  bedCapacity       Int?
   createdAt         DateTime          @default(now())
   referralsSent     Referral[]        @relation("ReferralFromUnit")
   referralsReceived Referral[]        @relation("ReferralToUnit")
@@ -387,15 +476,19 @@ model Unit {
 }
 
 model Team {
-  id String @id @default(uuid())
+  id   String @id @default(uuid())
+  name String
 
-  name     String
   unitId   String
+  unit     Unit   @relation(fields: [unitId], references: [id])
   clinicId String
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
 
-  unit             Unit              @relation(fields: [unitId], references: [id])
   staffAssignments StaffAssignment[]
-  clinic           Clinic            @relation(fields: [clinicId], references: [id])
+  inpatientStays   InpatientStay[]
+
+  @@unique([unitId, name])
+  @@index([clinicId])
 }
 
 model Referral {
@@ -468,7 +561,6 @@ model FluidBalanceDetails {
   faecesMl    Int               @default(0)
   vomitingMl  Int               @default(0)
   entry       FluidBalanceEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  // entry       FluidBalanceEntry @relation(fields: [entryId], references: [id])
 }
 
 model Vaccination {
@@ -535,8 +627,12 @@ model StaffAccount {
   medications              Medication[]
   performedAdministrations MedicationAdministration[]
   vaccinations             Vaccination[]
+  radiologyReports         RadiologyReport[]
   referralsSent            Referral[]
   clinicalParameterEntries ClinicalParameterEntry[]
+  medicationDispensings    MedicationDispensing[]
+  purchases                Purchase[]
+  stockMovements           StockMovement[]
 
   @@unique([clinicId, email])
 }
@@ -644,7 +740,7 @@ enum ReferralRole {
 
   Lab
   Radiology
-
+  Pharmacist
   Physiotherapist
   OccupationalTherapist
   Dietitian
@@ -803,7 +899,9 @@ model InpatientStay {
   unit   Unit?   @relation(fields: [unitId], references: [id])
 
   bedCode String
-  team    String?
+  // team    String?
+  teamId  String?
+  team    Team?   @relation(fields: [teamId], references: [id])
 
   ews Int?
 
@@ -966,4 +1064,207 @@ model SampleTrackingEvent {
   createdAt DateTime @default(now())
 
   @@index([sampleId])
+}
+
+enum MedicationDispensingStatus {
+  pending
+  preparing
+  dispensed
+  partially_dispensed
+  cancelled
+}
+
+enum PurchaseStatus {
+  pending
+  received
+  cancelled
+}
+
+model MedicationProduct {
+  id String @id @default(uuid())
+
+  clinicId String
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  name           String
+  genericName    String?
+  strength       String
+  form           String
+  route          MedicationRoute?
+  manufacturer   String?
+  isActive       Boolean               @default(true)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  inventory      MedicationInventory[]
+  purchaseItems  PurchaseItem[]
+  stockMovements StockMovement[]
+
+  @@index([clinicId])
+  @@index([name])
+}
+
+model MedicationInventory {
+  id String @id @default(uuid())
+
+  clinicId  String
+  clinic    Clinic            @relation(fields: [clinicId], references: [id])
+  productId String
+  product   MedicationProduct @relation(fields: [productId], references: [id])
+
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
+
+  batchNumber  String
+  expiryDate   DateTime
+  quantity     Int
+  minimumStock Int      @default(0)
+  location     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dispensings    MedicationDispensing[]
+  stockMovements StockMovement[]
+
+  @@index([clinicId])
+  @@index([productId])
+  @@index([expiryDate])
+}
+
+model MedicationDispensing {
+  id String @id @default(uuid())
+
+  clinicId String
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  medicationId String
+  medication   Medication @relation(fields: [medicationId], references: [id])
+
+  inventoryId String
+  inventory   MedicationInventory @relation(fields: [inventoryId], references: [id])
+
+  dispensedQuantity Int
+  status            MedicationDispensingStatus @default(pending)
+
+  dispensedByAccountId String?
+  dispensedByAccount   StaffAccount? @relation(fields: [dispensedByAccountId], references: [id])
+
+  notes       String?
+  dispensedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clinicId])
+  @@index([medicationId])
+}
+
+model Supplier {
+  id String @id @default(uuid())
+
+  clinicId String
+  clinic   Clinic  @relation(fields: [clinicId], references: [id])
+  name     String
+  phone    String?
+  email    String?
+  address  String?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inventory MedicationInventory[]
+  purchases Purchase[]
+
+  @@index([clinicId])
+  @@index([name])
+}
+
+model Purchase {
+  id String @id @default(uuid())
+
+  clinicId String
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+
+  createdByAccountId String
+  createdByAccount   StaffAccount @relation(fields: [createdByAccountId], references: [id])
+
+  status     PurchaseStatus @default(pending)
+  orderedAt  DateTime       @default(now())
+  receivedAt DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  items PurchaseItem[]
+
+  @@index([clinicId])
+}
+
+model PurchaseItem {
+  id String @id @default(uuid())
+
+  purchaseId String
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   MedicationProduct @relation(fields: [productId], references: [id])
+
+  quantity    Int
+  unitPrice   Float?
+  batchNumber String
+  expiryDate  DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([purchaseId])
+}
+
+model StockMovement {
+  id String @id @default(uuid())
+
+  clinicId String
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  inventoryId String?
+  inventory   MedicationInventory? @relation(fields: [inventoryId], references: [id])
+
+  productId String
+  product   MedicationProduct @relation(fields: [productId], references: [id])
+
+  performedByAccountId String?
+  performedByAccount   StaffAccount? @relation(fields: [performedByAccountId], references: [id])
+
+  movementType StockMovementType
+
+  quantity      Int
+  balanceAfter  Int
+  reason        String?
+  referenceId   String?
+  referenceType StockReferenceType?
+  batchNumber   String?
+  createdAt     DateTime            @default(now())
+
+  @@index([clinicId])
+  @@index([productId])
+  @@index([movementType])
+  @@index([createdAt])
+}
+
+enum StockMovementType {
+  purchase
+  dispensing
+  adjustment
+  expired
+  damaged
+  returned
+  transferred
+}
+
+enum StockReferenceType {
+  purchase
+  dispensing
+  adjustment
 }

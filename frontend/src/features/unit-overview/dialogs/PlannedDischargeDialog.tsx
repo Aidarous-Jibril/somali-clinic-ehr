@@ -122,7 +122,11 @@ const PlannedDischargeDialog: React.FC<PlannedDischargeDialogProps> = ({
                 size="small"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{
+                  inputLabel: {
+                    shrink: true,
+                  },
+                }}
               />
               <TextField
                 label="Time"
@@ -130,7 +134,11 @@ const PlannedDischargeDialog: React.FC<PlannedDischargeDialogProps> = ({
                 size="small"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{
+                  inputLabel: {
+                    shrink: true,
+                  },
+                }}
               />
               <Button
                 variant="outlined"

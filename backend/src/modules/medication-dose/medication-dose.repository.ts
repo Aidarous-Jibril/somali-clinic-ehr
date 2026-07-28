@@ -1,7 +1,5 @@
-import {
-  MedicationAdministrationAction,
-  MedicationDoseStatus,
-} from "@prisma/client";
+//modules/medication-dose/medication-dose.respository.ts
+import { MedicationAdministrationAction, MedicationDoseStatus, } from "@prisma/client";
 import { prisma } from "../../config/prisma.js";
 
 export const createDose = (data: {

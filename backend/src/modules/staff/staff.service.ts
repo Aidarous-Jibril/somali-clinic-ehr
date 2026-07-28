@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-change-this-in-production";
 
 import { Roles } from "../../constants/roles.js";
+import { ReferralRole } from "@prisma/client";
 
 export const createStaff = async (input: any, currentUser: any) => {
   if ( currentUser.role === Roles.ClinicAdmin && [Roles.SuperAdmin, Roles.ClinicAdmin].includes(input.role) ) {
@@ -63,8 +64,7 @@ export const login = async (clinicCode: string, email: string, password: string)
       teamId: primary?.teamId ?? null,
       role: primary?.role ?? null,
     },
-    JWT_SECRET,
-    { expiresIn: "24h" }
+    JWT_SECRET, { expiresIn: "24h" }
   );
 
   return {
@@ -90,10 +90,9 @@ export const login = async (clinicCode: string, email: string, password: string)
   };
 };
 
-export const listStaff = (clinicId: string) => {
-  return repo.findAll(clinicId);
+export const listStaff = ( clinicId: string, role?: ReferralRole ) => {
+  return repo.findAll(clinicId, role);
 };
-
 
 export const listByUnit = async ( unitId: string, user: any ) => {
   const unit = await repo.findUnitById( unitId);

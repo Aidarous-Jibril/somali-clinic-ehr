@@ -1,3 +1,4 @@
+//labResult.repository.ts
 import { prisma } from "../../config/prisma.js";
 import { LabResultFlag } from "@prisma/client";
 

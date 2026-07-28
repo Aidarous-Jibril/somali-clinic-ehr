@@ -195,6 +195,7 @@ export type FluidBalanceEntry = {
   outputMl: number;
   balance: string;
   period: string;
+  measuredAt: string;
   details?: FluidBalanceDetails;
 };
 
@@ -380,4 +381,33 @@ export type OrderResultCategoryGroup = {
 export type LabMeta = {
   unit?: string;
   ref?: string;
+};
+
+
+/* ========================================================
+ * RADIOLOGY RESULTS 
+ * ====================================================== */
+export type RadiologyImage = {
+  id: string;
+  fileName: string;
+  filePath: string;
+  viewName?: string;
+};
+
+export type RadiologyResult = {
+  id: string;
+  orderId: string;
+
+  examination: string;
+  modality: string;
+
+  impression: string;
+  findings?: string;
+  comment?: string;
+
+  overallResult: "normal" | "high" | "low" | "critical";
+
+  reportedAt: string;
+
+  images: RadiologyImage[];
 };

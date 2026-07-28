@@ -9,7 +9,7 @@ const router = Router();
 
 
 router.post( "/", requireRoles(Roles.Doctor), validate(createOrderSchema), controller.createOrder);
-
+router.get( "/performer-units", requireRoles(Roles.Doctor), controller.listPerformerUnits );
 
 router.post("/:id/start",  requireRoles(Roles.Lab, Roles.Radiology), controller.startOrder);   // ordered → in_progress
 router.post( "/:id/result", requireRoles(Roles.Lab, Roles.Radiology), validate(resultOrderSchema), controller.resultOrder);
@@ -19,7 +19,7 @@ router.post("/:id/complete", requireRoles(Roles.Doctor), controller.completeOrde
 router.get("/encounter/:encounterId", controller.listOrdersByEncounter);
 router.get("/patient/:patientId", controller.listOrdersByPatient);
 
-router.get( "/lab/worklist", requireRoles(Roles.Lab, Roles.Radiology), controller.listLabOrders );
 router.patch("/:id", requireRoles(Roles.Doctor), validate(updateOrderSchema), controller.updateOrder);
 
 export default router;
+
