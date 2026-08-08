@@ -128,7 +128,6 @@ export const getExpiringInventory = async ( req: Request, res: Response ) => {
   }
 };
 
-
 /**
  * Create Purchase
  */

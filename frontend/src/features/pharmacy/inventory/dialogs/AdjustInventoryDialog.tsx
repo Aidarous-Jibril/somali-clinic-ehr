@@ -17,9 +17,9 @@ import {
   ToggleButton,
   ToggleButtonGroup,
 } from "@mui/material";
+import type { InventoryItem } from "../../types";
+import { adjustmentReasons } from "../../constants";
 
-import type { InventoryItem } from "../../../features/pharmacy/types";
-import { adjustmentReasons } from "../constants";
 
 interface Props {
   open: boolean;

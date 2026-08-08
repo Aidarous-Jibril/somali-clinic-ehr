@@ -13,11 +13,12 @@ import InventoryStatusChip from "./InventoryStatusChip";
 
 import type { InventoryItem } from "../../../features/pharmacy/types";
 import { useState } from "react";
-import AdjustInventoryDialog from "../../../features/pharmacy/dialogs/AdjustInventoryDialog";
-import TransferInventoryDialog from "../../../features/pharmacy/dialogs/TransferInventoryDialog";
-import DamageInventoryDialog from "../../../features/pharmacy/dialogs/DamageInventoryDialog";
-import ReturnInventoryDialog from "../../../features/pharmacy/dialogs/ReturnInventoryDialog";
-import ExpireInventoryDialog from "../../../features/pharmacy/dialogs/ExpireInventoryDialog";
+import AdjustInventoryDialog from "../../../features/pharmacy/inventory/dialogs/AdjustInventoryDialog";
+import TransferInventoryDialog from "../../../features/pharmacy/inventory/dialogs/TransferInventoryDialog";
+import DamageInventoryDialog from "../../../features/pharmacy/inventory/dialogs/DamageInventoryDialog";
+import ReturnInventoryDialog from "../../../features/pharmacy/inventory/dialogs/ReturnInventoryDialog";
+import ExpireInventoryDialog from "../../../features/pharmacy/inventory/dialogs/ExpireInventoryDialog";
+
 
 interface Props {
   open: boolean;

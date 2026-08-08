@@ -15,9 +15,9 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import type { InventoryItem } from "../../types";
+import { locations } from "../../constants";
 
-import type { InventoryItem } from "../types";
-import { locations } from "../constants";
 
 interface Props {
   open: boolean;

@@ -16,8 +16,8 @@ import {
   Typography,
 } from "@mui/material";
 
-import type { InventoryItem } from "../types";
-import { returnReasons } from "../constants";
+import type { InventoryItem } from "../../types";
+import { damageReasons } from "../../constants";
 
 interface Props {
   open: boolean;
@@ -30,40 +30,31 @@ interface Props {
   }) => void;
 }
 
-const ReturnInventoryDialog = ({
+const DamageInventoryDialog = ({
   open,
   inventory,
   onClose,
   onSave,
 }: Props) => {
   const [quantity, setQuantity] = useState(0);
-  const [reason, setReason] = useState(returnReasons[0]);
+  const [reason, setReason] = useState(damageReasons[0]);
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
     if (!open) return;
 
     setQuantity(0);
-    setReason(returnReasons[0]);
+    setReason(damageReasons[0]);
     setNotes("");
   }, [open]);
 
-  const remainingDamaged = useMemo(() => {
+  const remainingStock = useMemo(() => {
     if (!inventory) return 0;
 
-    return Math.max(0, inventory.damaged - quantity);
+    return inventory.available - quantity;
   }, [inventory, quantity]);
 
-  const availableAfterReturn = useMemo(() => {
-    if (!inventory) return 0;
-
-    return inventory.available + quantity;
-  }, [inventory, quantity]);
-
-  const hasError =
-    !inventory ||
-    quantity <= 0 ||
-    quantity > inventory.damaged;
+  const hasError = !inventory || quantity <= 0 || quantity > inventory.available;
 
   const handleSave = () => {
     if (hasError) return;
@@ -87,7 +78,7 @@ const ReturnInventoryDialog = ({
       maxWidth="sm"
     >
       <DialogTitle>
-        Return Inventory
+        Damage Inventory
       </DialogTitle>
 
       <DialogContent dividers>
@@ -107,43 +98,33 @@ const ReturnInventoryDialog = ({
 
           <Divider />
 
-          {inventory.damaged === 0 && (
-            <Alert severity="info">
-              This batch has no damaged stock available to return.
-            </Alert>
-          )}
-
           <TextField
             type="number"
             label="Quantity"
             value={quantity}
             fullWidth
-            disabled={inventory.damaged === 0}
             onChange={(e) =>
               setQuantity(Number(e.target.value))
             }
           />
 
-          <Alert severity="success">
-            Return {quantity} unit{quantity !== 1 ? "s" : ""} to available inventory.
+          <Alert severity="warning">
+            Mark {quantity} unit{quantity !== 1 ? "s" : ""} as damaged.
           </Alert>
 
-          <FormControl
-            fullWidth
-            disabled={inventory.damaged === 0}
-          >
+          <FormControl fullWidth>
             <InputLabel>
-              Return Reason
+              Damage Reason
             </InputLabel>
 
             <Select
-              label="Return Reason"
+              label="Damage Reason"
               value={reason}
               onChange={(e) =>
                 setReason(e.target.value)
               }
             >
-              {returnReasons.map((item) => (
+              {damageReasons.map((item) => (
                 <MenuItem
                   key={item}
                   value={item}
@@ -159,7 +140,6 @@ const ReturnInventoryDialog = ({
             multiline
             rows={3}
             value={notes}
-            disabled={inventory.damaged === 0}
             fullWidth
             onChange={(e) =>
               setNotes(e.target.value)
@@ -168,80 +148,46 @@ const ReturnInventoryDialog = ({
 
           <Divider />
 
-          {/* Damaged inventory summary */}
-
           <Stack
             direction="row"
             spacing={2}
           >
             <TextField
-              label="Current Damaged"
-              value={inventory.damaged}
-              fullWidth
-              slotProps={{
-                input: {
-                  readOnly: true,
-                },
-              }}
-            />
-
-            <TextField
-              label="Returned"
-              value={quantity}
-              color="success"
-              fullWidth
-              slotProps={{
-                input: {
-                  readOnly: true,
-                },
-              }}
-            />
-
-            <TextField
-              label="Remaining Damaged"
-              value={remainingDamaged}
-              fullWidth
-              slotProps={{
-                input: {
-                  readOnly: true,
-                },
-              }}
-            />
-          </Stack>
-
-          {/* Available inventory summary */}
-
-          <Stack
-            direction="row"
-            spacing={2}
-          >
-            <TextField
-              label="Current Available"
+              label="Current Stock"
               value={inventory.available}
               fullWidth
+              InputProps={{
+                readOnly: true,
+              }}
+            />
+
+            <TextField
+              label="Damaged Qty"
+              value={quantity}
+              fullWidth
+              color="warning"
               slotProps={{
                 input: {
-                  readOnly: true,
+                readOnly: true,
                 },
               }}
             />
 
             <TextField
-              label="Available After Return"
-              value={availableAfterReturn}
-              color="success"
+              label="Remaining Stock"
+              value={remainingStock}
               fullWidth
               slotProps={{
                 input: {
-                  readOnly: true,
+                readOnly: true,
                 },
               }}
             />
           </Stack>
 
-          {hasError && inventory.damaged > 0 && (
+          {hasError && (
             <Alert severity="error">
-              Quantity must be greater than 0 and cannot exceed damaged stock.
+              Quantity must be greater than 0 and cannot exceed available stock.
             </Alert>
           )}
         </Stack>
@@ -254,18 +200,15 @@ const ReturnInventoryDialog = ({
 
         <Button
           variant="contained"
-          color="success"
+          color="warning"
+          disabled={hasError}
           onClick={handleSave}
-          disabled={
-            hasError ||
-            inventory.damaged === 0
-          }
         >
-          Return Inventory
+          Mark Damaged
         </Button>
       </DialogActions>
     </Dialog>
   );
 };
 
-export default ReturnInventoryDialog;
+export default DamageInventoryDialog;

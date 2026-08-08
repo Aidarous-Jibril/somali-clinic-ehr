@@ -16,8 +16,8 @@ import {
   Typography,
 } from "@mui/material";
 
-import type { InventoryItem } from "../types";
-import { expireReasons } from "../constants";
+import type { InventoryItem } from "../../types";
+import { expireReasons } from "../../constants";
 
 interface Props {
   open: boolean;
