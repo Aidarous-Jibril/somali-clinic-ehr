@@ -8,6 +8,7 @@ import PharmacyPageLayout from "../components/pharmacy/layout/PharmacyPageLayout
 
 import type { PharmacyTab, PharmacyToolbarAction, PharmacyToolbarFilter, } from "../features/pharmacy";
 import PharmacyDashboard from "../components/pharmacy/dashboard/PharmacyDashboard";
+import InventoryPage from "../components/pharmacy/inventory/InventoryPage";
 
 const PharmacyPage = () => {
   const [activeTab, setActiveTab] = useState<PharmacyTab>("dashboard");
@@ -96,17 +97,7 @@ const PharmacyPage = () => {
         );
 
       case "inventory":
-        return (
-          <Paper sx={{ p: 4 }}>
-            <Typography variant="h6">
-              Inventory
-            </Typography>
-
-            <Typography color="text.secondary">
-              Inventory coming soon...
-            </Typography>
-          </Paper>
-        );
+        return <InventoryPage />;
 
       case "purchases":
         return (

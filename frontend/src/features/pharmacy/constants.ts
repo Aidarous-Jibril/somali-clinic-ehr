@@ -1,6 +1,6 @@
 // src/features/pharmacy/constants.ts
 
-import type { PharmacyTab } from "./types";
+import type { InventoryItem, PharmacyTab } from "./types";
 
 
 export const PHARMACY_TABS: {
@@ -29,20 +29,7 @@ export const PHARMACY_TABS: {
   },
 ];
 
-
-// MOCK DATA
-// src/features/pharmacy/constants.ts
-
-
 export const DEFAULT_PHARMACY_TAB: PharmacyTab = "dashboard";
-
-// export const PHARMACY_TABS = [
-//   { value: "dashboard", label: "Dashboard" },
-//   { value: "inventory", label: "Inventory" },
-//   { value: "purchases", label: "Purchases" },
-//   { value: "suppliers", label: "Suppliers" },
-//   { value: "dispensing", label: "Dispensing" },
-// ] as const;
 
 export const mockDashboardStats = {
   totalProducts: 248,
@@ -150,3 +137,85 @@ export const mockPendingDispensing = [
     status: "In Progress",
   },
 ];
+
+export const mockPendingPurchases = [
+  {
+    id: "1",
+    supplier: "MediSupply Ltd",
+    poNumber: "PO-24081",
+    expected: "2026-08-04",
+    status: "Ordered",
+  },
+  {
+    id: "2",
+    supplier: "Global Pharma",
+    poNumber: "PO-24079",
+    expected: "2026-08-01",
+    status: "Partially Received",
+  },
+  {
+    id: "3",
+    supplier: "Somali Medical",
+    poNumber: "PO-24074",
+    expected: "2026-07-30",
+    status: "Delayed",
+  },
+];
+
+export const mockInventory: InventoryItem[] = [
+  {
+    id: "1",
+    product: "Paracetamol",
+    strength: "500 mg",
+    formulation: "Tablet",
+    batch: "PAR-2401",
+    expiry: "2027-01-15",
+    available: 84,
+    reserved: 6,
+    damaged: 0,
+    minimumStock: 20,
+    supplier: "MediSupply",
+    manufacturer: "Acme Pharma",
+    location: "Main Store",
+    status: "IN_STOCK",
+  },
+  {
+    id: "2",
+    product: "Amoxicillin",
+    strength: "250 mg",
+    formulation: "Tablet",
+    batch: "AMX-1031",
+    expiry: "2026-08-12",
+    available: 12,
+    reserved: 2,
+    damaged: 1,
+    minimumStock: 20,
+    supplier: "Global Pharma",
+    manufacturer: "Acme Pharma",
+    location: "Shelf A2",
+    status: "LOW_STOCK",
+  },
+  {
+    id: "3",
+    product: "Vitamin C",
+    strength: "500 mg",
+    formulation: "Tablet",
+    batch: "VIT-8892",
+    expiry: "2026-07-30",
+    available: 0,
+    reserved: 0,
+    damaged: 6,
+    minimumStock: 10,
+    supplier: "Somali Medical",
+    manufacturer: "Acme Pharma",
+    location: "Shelf C1",
+    status: "OUT_OF_STOCK",
+  },
+];
+
+export  const locations = [ "Ward Pharmacy", "Emergency Room", "ICU", "Operating Theatre", "Satellite Pharmacy",];
+export const adjustmentReasons = [ "Stock Received", "Inventory Count", "Correction", "Manual Adjustment", "Other", ];
+
+export const damageReasons = [ "Broken Package", "Expired", "Contaminated", "Storage Damage", "Manufacturer Defect", "Other", ];
+export const returnReasons = [ "Quality Inspection", "Packaging Corrected", "Marked Damaged by Mistake", "Manufacturer Approval", "Other", ];
+export const expireReasons = [ "Expired", "Manufacturer Recall", "Quality Failure", "Cold Chain Failure", "Storage Damage", "Other", ];

@@ -1,4 +1,4 @@
-// src/features/pharmacy/types.ts
+
 
 import type { ReactNode } from "react";
 
@@ -21,8 +21,42 @@ export interface PharmacyToolbarFilter {
   options: PharmacyToolbarFilterOption[];
 }
 
+
+export interface InventoryItem {
+  id: string;
+
+  product: string;
+  strength: string;
+  formulation: string;
+
+  batch: string;
+  expiry: string;
+
+  supplier: string;
+  manufacturer: string;
+
+  location: string;
+
+  available: number;
+  reserved: number;
+  damaged: number;
+  minimumStock: number;
+
+  status: | "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
+}
+
 export interface PharmacyToolbarAction {
   label: string;
   icon?: ReactNode;
-  onClick?: () => void;
+  onClick: () => void;
+}
+
+export interface PharmacyToolbarProps {
+  searchPlaceholder?: string;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+
+  filters?: ReactNode;
+
+  actions?: PharmacyToolbarAction[];
 }
